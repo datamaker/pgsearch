@@ -1,6 +1,7 @@
+# Development: build from source
 services:
   pgsearch:
-    image: pgsearch/pgsearch:latest
+    build: .
     container_name: pgsearch
     ports:
       - "7700:7700"
@@ -13,7 +14,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    volumes:
+      - ./src:/app/src:ro
 
   postgres:
     image: postgres:16-alpine
@@ -22,6 +24,8 @@ services:
       POSTGRES_USER: pgsearch
       POSTGRES_PASSWORD: pgsearch
       POSTGRES_DB: pgsearch
+    ports:
+      - "5432:5432"
     volumes:
       - pgsearch_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,7 +33,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
 volumes:
   pgsearch_data:

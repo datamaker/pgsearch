@@ -3,6 +3,7 @@
 PostgreSQL-based search engine with Meilisearch-compatible API.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/docker/v/pgsearch/pgsearch?label=docker)](https://hub.docker.com/r/pgsearch/pgsearch)
 
 ## Features
 
@@ -13,27 +14,48 @@ PostgreSQL-based search engine with Meilisearch-compatible API.
 - **Built-in Dashboard** - Web UI for managing indexes and testing search
 - **Zero Config** - Works out of the box with sensible defaults
 
-## Quick Start
+## Quick Start (Docker)
+
+**One-line installation:**
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/pgsearch.git
-cd pgsearch
-
-# Install dependencies
-npm install
-
-# Start PostgreSQL (Docker)
-docker-compose up -d
-
-# Run migrations
-npm run migrate
-
-# Start the server
-npm run dev
+curl -sSL https://raw.githubusercontent.com/pgsearch/pgsearch/main/docker-compose.yml -o docker-compose.yml && docker compose up -d
 ```
 
 Open http://localhost:7700 in your browser.
+
+## Installation Options
+
+### Option 1: Docker Compose (Recommended)
+
+```bash
+# Download and start
+wget https://raw.githubusercontent.com/pgsearch/pgsearch/main/docker-compose.yml
+docker compose up -d
+```
+
+### Option 2: Docker (with external PostgreSQL)
+
+```bash
+docker run -d \
+  --name pgsearch \
+  -p 7700:7700 \
+  -e DB_HOST=your-postgres-host \
+  -e DB_USER=postgres \
+  -e DB_PASSWORD=yourpassword \
+  -e DB_NAME=pgsearch \
+  pgsearch/pgsearch:latest
+```
+
+### Option 3: From Source
+
+```bash
+git clone https://github.com/pgsearch/pgsearch.git
+cd pgsearch
+npm install
+npm run migrate
+npm run dev
+```
 
 ## API Usage
 
@@ -64,6 +86,15 @@ curl -X POST http://localhost:7700/indexes/movies/search \
   -d '{"q": "incep"}'
 ```
 
+## Dashboard
+
+Built-in web UI at http://localhost:7700
+
+- **Indexes** - Create, view, delete indexes
+- **Documents** - Add, view, delete documents
+- **Settings** - Configure searchable/filterable attributes
+- **Search** - Test search with filters and highlighting
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
@@ -76,8 +107,6 @@ curl -X POST http://localhost:7700/indexes/movies/search \
 
 ## Configuration
 
-Environment variables:
-
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | 7700 | Server port |
@@ -87,13 +116,26 @@ Environment variables:
 | `DB_PASSWORD` | - | Database password |
 | `DB_NAME` | pgsearch | Database name |
 
+## Meilisearch Compatibility
+
+| Feature | Status |
+|---------|--------|
+| Indexes CRUD | ✅ |
+| Documents CRUD | ✅ |
+| Search | ✅ |
+| Filters | ✅ |
+| Facets | ✅ |
+| Highlighting | ✅ |
+| Settings | ✅ |
+| Typo tolerance | ✅ |
+| API Keys | ❌ |
+| Geo search | ❌ |
+
 ## Tech Stack
 
-- **Runtime**: Node.js
-- **Language**: TypeScript
-- **Framework**: Fastify
-- **Database**: PostgreSQL
-- **Extensions**: pg_trgm
+- Node.js 20+ / TypeScript
+- Fastify
+- PostgreSQL 16+ with pg_trgm
 
 ## Contributing
 
