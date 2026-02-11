@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PgSearch Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #5468ff;
+      --primary-dark: #3d4ed5;
+      --danger: #ff4757;
+      --success: #2ed573;
+      --bg: #f8f9fa;
+      --sidebar-bg: #1a1a2e;
+      --card-bg: #ffffff;
+      --text: #2d3436;
+      --text-light: #636e72;
+      --border: #e9ecef;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      background: var(--sidebar-bg);
+      color: white;
+      padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logo {
+      padding: 0 20px 30px;
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo span {
+      color: var(--primary);
+    }
+
+    .nav-section {
+      margin-bottom: 20px;
+    }
+
+    .nav-title {
+      padding: 10px 20px;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #666;
+      letter-spacing: 1px;
+    }
+
+    .nav-item {
+      padding: 12px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+
+    .nav-item:hover, .nav-item.active {
+      background: rgba(255,255,255,0.1);
+      border-left-color: var(--primary);
+    }
+
+    .nav-item svg {
+      width: 20px;
+      height: 20px;
+      opacity: 0.7;
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    /* Index Grid */
+    .index-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .index-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .index-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    .index-card.selected {
+      border-color: var(--primary);
+    }
+
+    .index-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .index-meta {
+      font-size: 13px;
+      color: var(--text-light);
+    }
+
+    .index-stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-light);
+    }
+
+    /* Search Box */
+    .search-container {
+      margin-bottom: 20px;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 10px;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 14px 18px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* Table */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-light);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tr:hover {
+      background: var(--bg);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      transform: translateY(20px);
+      transition: all 0.2s;
+    }
+
+    .modal-overlay.active .modal {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-light);
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-textarea {
+      min-height: 150px;
+      font-family: monospace;
+      resize: vertical;
+    }
+
+    /* Search Results */
+    .search-results {
+      margin-top: 20px;
+    }
+
+    .result-item {
+      background: var(--bg);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .result-item em {
+      background: #fff3cd;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-style: normal;
+    }
+
+    .result-meta {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-light);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-light);
+    }
+
+    .empty-state svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      opacity: 0.3;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .tab:hover {
+      color: var(--primary);
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 16px 24px;
+      background: var(--text);
+      color: white;
+      border-radius: 8px;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 2000;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      background: var(--success);
+    }
+
+    .toast.error {
+      background: var(--danger);
+    }
+
+    /* JSON Viewer */
+    .json-viewer {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .json-key { color: #9cdcfe; }
+    .json-string { color: #ce9178; }
+    .json-number { color: #b5cea8; }
+    .json-boolean { color: #569cd6; }
+    .json-null { color: #569cd6; }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-primary {
+      background: rgba(84, 104, 255, 0.1);
+      color: var(--primary);
+    }
+
+    /* Loading */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: -260px;
+        height: 100%;
+        z-index: 100;
+        transition: left 0.3s;
+      }
+
+      .sidebar.open {
+        left: 0;
+      }
+
+      .main {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+      <span>Pg</span>Search
+    </div>
+
+    <nav class="nav-section">
+      <div class="nav-title">Management</div>
+      <div class="nav-item active" data-page="indexes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+        Indexes
+      </div>
+      <div class="nav-item" data-page="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        Search
+      </div>
+    </nav>
+
+    <nav class="nav-section" style="margin-top: auto;">
+      <div class="nav-item" onclick="window.open('https://github.com', '_blank')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+        Documentation
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Indexes Page -->
+    <div id="page-indexes" class="page active">
+      <div class="header">
+        <h1>Indexes</h1>
+        <button class="btn btn-primary" onclick="openCreateIndexModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Create Index
+        </button>
+      </div>
+
+      <div id="indexes-container" class="index-grid">
+        <!-- Indexes will be loaded here -->
+      </div>
+    </div>
+
+    <!-- Search Page -->
+    <div id="page-search" class="page" style="display: none;">
+      <div class="header">
+        <h1>Search</h1>
+      </div>
+
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Select Index</label>
+          <select id="search-index-select" class="form-input" onchange="onSearchIndexChange()">
+            <option value="">-- Select an index --</option>
+          </select>
+        </div>
+
+        <div class="search-container">
+          <div class="search-box">
+            <input type="text" id="search-query" class="search-input" placeholder="Enter search query..." onkeyup="handleSearchKeyup(event)">
+            <button class="btn btn-primary" onclick="performSearch()">Search</button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" data-tab="results">Results</div>
+          <div class="tab" data-tab="options">Options</div>
+        </div>
+
+        <div id="tab-results" class="tab-content active">
+          <div id="search-results" class="search-results">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+              <p>Enter a query to search</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-options" class="tab-content">
+          <div class="form-group">
+            <label class="form-label">Filter</label>
+            <input type="text" id="search-filter" class="form-input" placeholder="e.g., genre = 'Sci-Fi'">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Attributes to Highlight (comma-separated)</label>
+            <input type="text" id="search-highlight" class="form-input" placeholder="e.g., title, overview">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Facets (comma-separated)</label>
+            <input type="text" id="search-facets" class="form-input" placeholder="e.g., genre, year">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Limit</label>
+            <input type="number" id="search-limit" class="form-input" value="20" min="1" max="100">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Index Detail Page -->
+    <div id="page-index-detail" class="page" style="display: none;">
+      <div class="header">
+        <h1>
+          <a href="#" onclick="showPage('indexes'); return false;" style="color: var(--text-light); text-decoration: none;">Indexes</a>
+          <span style="color: var(--text-light); margin: 0 10px;">/</span>
+          <span id="detail-index-name"></span>
+        </h1>
+        <button class="btn btn-danger" onclick="deleteCurrentIndex()">Delete Index</button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="documents">Documents</div>
+        <div class="tab" data-tab="settings">Settings</div>
+      </div>
+
+      <div id="tab-documents" class="tab-content active">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Documents</span>
+            <button class="btn btn-primary btn-sm" onclick="openAddDocumentsModal()">Add Documents</button>
+          </div>
+          <div id="documents-table" class="table-container">
+            <!-- Documents table will be loaded here -->
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-settings" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Index Settings</span>
+            <div>
+              <button class="btn btn-secondary btn-sm" onclick="resetSettings()" style="margin-right: 8px;">Reset All</button>
+              <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Settings</button>
+            </div>
+          </div>
+          <div id="index-settings">
+            <!-- Settings Form -->
+            <div class="settings-form">
+              <div class="form-group">
+                <label class="form-label">Searchable Attributes</label>
+                <input type="text" id="setting-searchable" class="form-input" placeholder='["*"] or ["title", "content"]'>
+                <small style="color: var(--text-light);">Attributes used for searching. Use ["*"] for all.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Displayed Attributes</label>
+                <input type="text" id="setting-displayed" class="form-input" placeholder='["*"] or ["title", "id"]'>
+                <small style="color: var(--text-light);">Attributes returned in search results.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Filterable Attributes</label>
+                <input type="text" id="setting-filterable" class="form-input" placeholder='["genre", "year"]'>
+                <small style="color: var(--text-light);">Attributes that can be used as filters.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Sortable Attributes</label>
+                <input type="text" id="setting-sortable" class="form-input" placeholder='["price", "date"]'>
+                <small style="color: var(--text-light);">Attributes that can be used for sorting.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Ranking Rules</label>
+                <input type="text" id="setting-ranking" class="form-input" placeholder='["words", "typo", "proximity"]'>
+                <small style="color: var(--text-light);">Order of ranking rules.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Stop Words</label>
+                <input type="text" id="setting-stopwords" class="form-input" placeholder='["the", "a", "an"]'>
+                <small style="color: var(--text-light);">Words to ignore during search.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Synonyms (JSON)</label>
+                <textarea id="setting-synonyms" class="form-textarea" style="min-height: 80px;" placeholder='{"wolverine": ["xmen", "logan"], "wow": ["world of warcraft"]}'></textarea>
+                <small style="color: var(--text-light);">Word synonyms for search.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Distinct Attribute</label>
+                <input type="text" id="setting-distinct" class="form-input" placeholder="e.g., product_id">
+                <small style="color: var(--text-light);">Attribute to deduplicate results.</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Create Index Modal -->
+  <div id="create-index-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Create New Index</h2>
+        <button class="modal-close" onclick="closeModal('create-index-modal')">&times;</button>
+      </div>
+      <form onsubmit="createIndex(event)">
+        <div class="form-group">
+          <label class="form-label">Index UID *</label>
+          <input type="text" id="new-index-uid" class="form-input" placeholder="e.g., movies" required pattern="[a-zA-Z0-9_-]+">
+          <small style="color: var(--text-light);">Only alphanumeric characters, hyphens, and underscores</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Primary Key (optional)</label>
+          <input type="text" id="new-index-pk" class="form-input" placeholder="e.g., id">
+          <small style="color: var(--text-light);">Can be set automatically from first document</small>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Index</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Documents Modal -->
+  <div id="add-documents-modal" class="modal-overlay">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Add Documents</h2>
+        <button class="modal-close" onclick="closeModal('add-documents-modal')">&times;</button>
+      </div>
+      <form onsubmit="addDocuments(event)">
+        <div class="form-group">
+          <label class="form-label">Documents (JSON Array) *</label>
+          <textarea id="new-documents-json" class="form-textarea" placeholder='[
+  {"id": 1, "title": "Example", "content": "..."},
+  {"id": 2, "title": "Another", "content": "..."}
+]' required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Add Documents</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // State
+    let currentIndexUid = null;
+    let indexes = [];
+
+    // API Base URL
+    const API_URL = window.location.origin;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadIndexes();
+      setupNavigation();
+      setupTabs();
+    });
+
+    // Navigation
+    function setupNavigation() {
+      document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+        item.addEventListener('click', () => {
+          const page = item.dataset.page;
+          showPage(page);
+          document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+    }
+
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+      document.getElementById(`page-${page}`).style.display = 'block';
+
+      if (page === 'search') {
+        loadSearchIndexes();
+      }
+    }
+
+    // Tabs
+    function setupTabs() {
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabGroup = tab.parentElement;
+          const contentContainer = tabGroup.parentElement;
+          const tabName = tab.dataset.tab;
+
+          tabGroup.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          contentContainer.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          contentContainer.querySelector(`#tab-${tabName}`).classList.add('active');
+        });
+      });
+    }
+
+    // Modal
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    function openCreateIndexModal() {
+      document.getElementById('new-index-uid').value = '';
+      document.getElementById('new-index-pk').value = '';
+      openModal('create-index-modal');
+    }
+
+    function openAddDocumentsModal() {
+      document.getElementById('new-documents-json').value = '';
+      openModal('add-documents-modal');
+    }
+
+    // Toast
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // API Functions
+    async function apiCall(endpoint, options = {}) {
+      try {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'API Error');
+        }
+        return data;
+      } catch (error) {
+        showToast(error.message, 'error');
+        throw error;
+      }
+    }
+
+    // Indexes
+    async function loadIndexes() {
+      try {
+        const data = await apiCall('/indexes');
+        indexes = data.results;
+        renderIndexes();
+      } catch (error) {
+        console.error('Failed to load indexes:', error);
+      }
+    }
+
+    function renderIndexes() {
+      const container = document.getElementById('indexes-container');
+
+      if (indexes.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+            <p>No indexes yet. Create your first index!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = indexes.map(index => `
+        <div class="index-card" onclick="openIndexDetail('${index.uid}')">
+          <div class="index-name">${index.uid}</div>
+          <div class="index-meta">
+            Primary Key: <span class="badge badge-primary">${index.primaryKey || 'Not set'}</span>
+          </div>
+          <div class="index-meta" style="margin-top: 8px;">
+            Created: ${new Date(index.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function createIndex(e) {
+      e.preventDefault();
+      const uid = document.getElementById('new-index-uid').value;
+      const primaryKey = document.getElementById('new-index-pk').value || undefined;
+
+      try {
+        await apiCall('/indexes', {
+          method: 'POST',
+          body: JSON.stringify({ uid, primaryKey })
+        });
+        showToast('Index created successfully!', 'success');
+        closeModal('create-index-modal');
+        loadIndexes();
+      } catch (error) {
+        // Error handled in apiCall
+      }
+    }
+
+    async function deleteCurrentIndex() {
+      if (!confirm(`Are you sure you want to delete index "${currentIndexUid}"?`)) return;
+
+      try {
+        await apiCall(`/indexes/${currentIndexUid}`, { method: 'DELETE' });
+        showToast('Index deleted successfully!', 'success');
+        showPage('indexes');
+        loadIndexes();
+      } catch (error) {
+        // Error handled in apiCall
+      }
+    }
+
+    // Index Detail
+    async function openIndexDetail(uid) {
+      currentIndexUid = uid;
+      document.getElementById('detail-index-name').textContent = uid;
+      showPage('index-detail');
+
+      // Reset tabs
+      document.querySelectorAll('#page-index-detail .tab').forEach((t, i) => {
+        t.classList.toggle('active', i === 0);
+      });
+      document.querySelectorAll('#page-index-detail .tab-content').forEach((c, i) => {
+        c.classList.toggle('active', i === 0);
+      });
+
+      loadDocuments();
+      loadIndexSettings();
+    }
+
+    async function loadDocuments() {
+      try {
+        const data = await apiCall(`/indexes/${currentIndexUid}/documents?limit=100`);
+        renderDocuments(data.results, data.total);
+      } catch (error) {
+        console.error('Failed to load documents:', error);
+      }
+    }
+
+    function renderDocuments(docs, total) {
+      const container = document.getElementById('documents-table');
+
+      if (docs.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <p>No documents yet. Add your first document!</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Get all keys from documents
+      const allKeys = [...new Set(docs.flatMap(doc => Object.keys(doc)))];
+      const displayKeys = allKeys.slice(0, 5); // Show max 5 columns
+
+      container.innerHTML = `
+        <p style="margin-bottom: 15px; color: var(--text-light);">Total: ${total} documents</p>
+        <table>
+          <thead>
+            <tr>
+              ${displayKeys.map(key => `<th>${key}</th>`).join('')}
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${docs.map(doc => `
+              <tr>
+                ${displayKeys.map(key => `<td>${formatCellValue(doc[key])}</td>`).join('')}
+                <td>
+                  <button class="btn btn-danger btn-sm" onclick="deleteDocument('${doc[getDocumentId(doc)]}')">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function formatCellValue(value) {
+      if (value === null || value === undefined) return '-';
+      if (typeof value === 'object') return JSON.stringify(value).substring(0, 50) + '...';
+      const str = String(value);
+      return str.length > 50 ? str.substring(0, 50) + '...' : str;
+    }
+
+    function getDocumentId(doc) {
+      // Find the primary key field
+      const index = indexes.find(i => i.uid === currentIndexUid);
+      return index?.primaryKey || 'id';
+    }
+
+    async function addDocuments(e) {
+      e.preventDefault();
+      const jsonText = document.getElementById('new-documents-json').value;
+
+      try {
+        const documents = JSON.parse(jsonText);
+        await apiCall(`/indexes/${currentIndexUid}/documents`, {
+          method: 'POST',
+          body: JSON.stringify(documents)
+        });
+        showToast('Documents added successfully!', 'success');
+        closeModal('add-documents-modal');
+        loadDocuments();
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          showToast('Invalid JSON format', 'error');
+        }
+      }
+    }
+
+    async function deleteDocument(docId) {
+      if (!confirm(`Delete document "${docId}"?`)) return;
+
+      try {
+        await apiCall(`/indexes/${currentIndexUid}/documents/${docId}`, { method: 'DELETE' });
+        showToast('Document deleted!', 'success');
+        loadDocuments();
+      } catch (error) {
+        // Error handled in apiCall
+      }
+    }
+
+    async function loadIndexSettings() {
+      try {
+        const settings = await apiCall(`/indexes/${currentIndexUid}/settings`);
+
+        // Populate form fields
+        document.getElementById('setting-searchable').value = JSON.stringify(settings.searchableAttributes);
+        document.getElementById('setting-displayed').value = JSON.stringify(settings.displayedAttributes);
+        document.getElementById('setting-filterable').value = JSON.stringify(settings.filterableAttributes);
+        document.getElementById('setting-sortable').value = JSON.stringify(settings.sortableAttributes);
+        document.getElementById('setting-ranking').value = JSON.stringify(settings.rankingRules);
+        document.getElementById('setting-stopwords').value = JSON.stringify(settings.stopWords);
+        document.getElementById('setting-synonyms').value = JSON.stringify(settings.synonyms, null, 2);
+        document.getElementById('setting-distinct').value = settings.distinctAttribute || '';
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    }
+
+    async function saveSettings() {
+      try {
+        const settings = {};
+
+        // Parse each field
+        const searchable = document.getElementById('setting-searchable').value.trim();
+        if (searchable) settings.searchableAttributes = JSON.parse(searchable);
+
+        const displayed = document.getElementById('setting-displayed').value.trim();
+        if (displayed) settings.displayedAttributes = JSON.parse(displayed);
+
+        const filterable = document.getElementById('setting-filterable').value.trim();
+        if (filterable) settings.filterableAttributes = JSON.parse(filterable);
+
+        const sortable = document.getElementById('setting-sortable').value.trim();
+        if (sortable) settings.sortableAttributes = JSON.parse(sortable);
+
+        const ranking = document.getElementById('setting-ranking').value.trim();
+        if (ranking) settings.rankingRules = JSON.parse(ranking);
+
+        const stopwords = document.getElementById('setting-stopwords').value.trim();
+        if (stopwords) settings.stopWords = JSON.parse(stopwords);
+
+        const synonyms = document.getElementById('setting-synonyms').value.trim();
+        if (synonyms) settings.synonyms = JSON.parse(synonyms);
+
+        const distinct = document.getElementById('setting-distinct').value.trim();
+        settings.distinctAttribute = distinct || null;
+
+        await apiCall(`/indexes/${currentIndexUid}/settings`, {
+          method: 'PATCH',
+          body: JSON.stringify(settings)
+        });
+
+        showToast('Settings saved successfully!', 'success');
+        loadIndexSettings();
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          showToast('Invalid JSON format in one of the fields', 'error');
+        }
+      }
+    }
+
+    async function resetSettings() {
+      if (!confirm('Reset all settings to default values?')) return;
+
+      try {
+        await apiCall(`/indexes/${currentIndexUid}/settings`, { method: 'DELETE' });
+        showToast('Settings reset to defaults!', 'success');
+        loadIndexSettings();
+      } catch (error) {
+        // Error handled in apiCall
+      }
+    }
+
+    // Search
+    async function loadSearchIndexes() {
+      const select = document.getElementById('search-index-select');
+      select.innerHTML = '<option value="">-- Select an index --</option>' +
+        indexes.map(i => `<option value="${i.uid}">${i.uid}</option>`).join('');
+    }
+
+    function onSearchIndexChange() {
+      document.getElementById('search-results').innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <p>Enter a query to search</p>
+        </div>
+      `;
+    }
+
+    function handleSearchKeyup(e) {
+      if (e.key === 'Enter') performSearch();
+    }
+
+    async function performSearch() {
+      const indexUid = document.getElementById('search-index-select').value;
+      const query = document.getElementById('search-query').value;
+      const filter = document.getElementById('search-filter').value;
+      const highlight = document.getElementById('search-highlight').value;
+      const facets = document.getElementById('search-facets').value;
+      const limit = document.getElementById('search-limit').value;
+
+      if (!indexUid) {
+        showToast('Please select an index', 'error');
+        return;
+      }
+
+      const searchParams = {
+        q: query,
+        limit: parseInt(limit) || 20
+      };
+
+      if (filter) searchParams.filter = filter;
+      if (highlight) searchParams.attributesToHighlight = highlight.split(',').map(s => s.trim());
+      if (facets) searchParams.facets = facets.split(',').map(s => s.trim());
+
+      try {
+        const results = await apiCall(`/indexes/${indexUid}/search`, {
+          method: 'POST',
+          body: JSON.stringify(searchParams)
+        });
+        renderSearchResults(results);
+      } catch (error) {
+        // Error handled in apiCall
+      }
+    }
+
+    function renderSearchResults(results) {
+      const container = document.getElementById('search-results');
+
+      if (results.hits.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <p>No results found</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = `
+        <div class="result-meta" style="margin-bottom: 15px;">
+          Found ${results.estimatedTotalHits} results in ${results.processingTimeMs}ms
+        </div>
+      `;
+
+      if (results.facetDistribution) {
+        html += `<div style="margin-bottom: 20px;">`;
+        for (const [facet, values] of Object.entries(results.facetDistribution)) {
+          html += `<strong>${facet}:</strong> `;
+          html += Object.entries(values).map(([k, v]) => `${k} (${v})`).join(', ');
+          html += '<br>';
+        }
+        html += `</div>`;
+      }
+
+      html += results.hits.map(hit => {
+        const displayHit = hit._formatted || hit;
+        return `
+          <div class="result-item">
+            <div class="json-viewer">${formatJSON(displayHit)}</div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = html;
+    }
+
+    // Utilities
+    function formatJSON(obj) {
+      return JSON.stringify(obj, null, 2)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+        .replace(/: "([^"]*)"/g, ': <span class="json-string">"$1"</span>')
+        .replace(/: (\d+)/g, ': <span class="json-number">$1</span>')
+        .replace(/: (true|false)/g, ': <span class="json-boolean">$1</span>')
+        .replace(/: null/g, ': <span class="json-null">null</span>');
+    }
+  </script>
+</body>
+</html>
