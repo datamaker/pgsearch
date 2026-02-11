@@ -3,7 +3,7 @@
 PostgreSQL-based search engine with Meilisearch-compatible API.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker](https://img.shields.io/docker/v/pgsearch/pgsearch?label=docker)](https://hub.docker.com/r/pgsearch/pgsearch)
+[![Docker](https://img.shields.io/docker/v/datamaker/pgsearch?label=docker)](https://hub.docker.com/r/datamaker/pgsearch)
 
 ## Features
 
@@ -19,7 +19,7 @@ PostgreSQL-based search engine with Meilisearch-compatible API.
 **One-line installation:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/pgsearch/pgsearch/main/docker-compose.yml -o docker-compose.yml && docker compose up -d
+curl -sSL https://raw.githubusercontent.com/datamaker/pgsearch/main/docker-compose.yml -o docker-compose.yml && docker compose up -d
 ```
 
 Open http://localhost:7700 in your browser.
@@ -30,7 +30,7 @@ Open http://localhost:7700 in your browser.
 
 ```bash
 # Download and start
-wget https://raw.githubusercontent.com/pgsearch/pgsearch/main/docker-compose.yml
+wget https://raw.githubusercontent.com/datamaker/pgsearch/main/docker-compose.yml
 docker compose up -d
 ```
 
@@ -44,13 +44,13 @@ docker run -d \
   -e DB_USER=postgres \
   -e DB_PASSWORD=yourpassword \
   -e DB_NAME=pgsearch \
-  pgsearch/pgsearch:latest
+  datamaker/pgsearch:latest
 ```
 
 ### Option 3: From Source
 
 ```bash
-git clone https://github.com/pgsearch/pgsearch.git
+git clone https://github.com/datamaker/pgsearch.git
 cd pgsearch
 npm install
 npm run migrate

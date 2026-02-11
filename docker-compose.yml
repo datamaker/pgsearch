@@ -1,6 +1,6 @@
 services:
   pgsearch:
-    image: pgsearch/pgsearch:latest
+    image: datamaker/pgsearch:latest
     container_name: pgsearch
     ports:
       - "7700:7700"
