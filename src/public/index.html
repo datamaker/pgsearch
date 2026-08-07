@@ -514,6 +514,86 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Auth */
+    [hidden] {
+      display: none !important;
+    }
+
+    body.is-member .write-only {
+      display: none !important;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+    }
+
+    .login-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      text-align: center;
+      width: 90%;
+      max-width: 380px;
+    }
+
+    .login-card .logo {
+      color: var(--text);
+      justify-content: center;
+      padding-bottom: 10px;
+    }
+
+    .login-card p {
+      color: var(--text-light);
+      margin-bottom: 24px;
+    }
+
+    .user-bar {
+      padding: 12px 20px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .user-email {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 8px;
+      word-break: break-all;
+    }
+
+    .key-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--bg);
+      border: 2px dashed var(--primary);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .key-box input {
+      flex: 1;
+      border: none;
+      background: none;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      outline: none;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .sidebar {
@@ -560,9 +640,28 @@
         </svg>
         Search
       </div>
+      <div class="nav-item admin-only" data-page="members" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        Members
+      </div>
+      <div class="nav-item admin-only" data-page="keys" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+        </svg>
+        API Keys
+      </div>
     </nav>
 
     <nav class="nav-section" style="margin-top: auto;">
+      <div id="user-bar" class="user-bar" style="display: none;">
+        <div id="user-email" class="user-email"></div>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">로그아웃</button>
+      </div>
       <div class="nav-item" onclick="window.open('https://github.com', '_blank')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -580,7 +679,7 @@
     <div id="page-indexes" class="page active">
       <div class="header">
         <h1>Indexes</h1>
-        <button class="btn btn-primary" onclick="openCreateIndexModal()">
+        <button class="btn btn-primary write-only" onclick="openCreateIndexModal()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -661,7 +760,7 @@
           <span style="color: var(--text-light); margin: 0 10px;">/</span>
           <span id="detail-index-name"></span>
         </h1>
-        <button class="btn btn-danger" onclick="deleteCurrentIndex()">Delete Index</button>
+        <button class="btn btn-danger write-only" onclick="deleteCurrentIndex()">Delete Index</button>
       </div>
 
       <div class="tabs">
@@ -673,7 +772,7 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Documents</span>
-            <button class="btn btn-primary btn-sm" onclick="openAddDocumentsModal()">Add Documents</button>
+            <button class="btn btn-primary btn-sm write-only" onclick="openAddDocumentsModal()">Add Documents</button>
           </div>
           <div id="documents-table" class="table-container">
             <!-- Documents table will be loaded here -->
@@ -685,7 +784,7 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Index Settings</span>
-            <div>
+            <div class="write-only">
               <button class="btn btn-secondary btn-sm" onclick="resetSettings()" style="margin-right: 8px;">Reset All</button>
               <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Settings</button>
             </div>
@@ -745,7 +844,70 @@
         </div>
       </div>
     </div>
+
+    <!-- Members Page (admin only) -->
+    <div id="page-members" class="page" style="display: none;">
+      <div class="header">
+        <h1>Members</h1>
+      </div>
+
+      <div class="card">
+        <div id="members-table" class="table-container">
+          <!-- Members table will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- API Keys Page (admin only) -->
+    <div id="page-keys" class="page" style="display: none;">
+      <div class="header">
+        <h1>API Keys</h1>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Create Key</span>
+        </div>
+        <form onsubmit="createApiKey(event)">
+          <div class="search-box">
+            <input type="text" id="new-key-name" class="form-input" placeholder="Key name (e.g., production-app)" required>
+            <button type="submit" class="btn btn-primary">Create</button>
+          </div>
+        </form>
+        <div id="new-key-box" class="key-box" style="display: none; margin-top: 20px;">
+          <input type="text" id="new-key-value" readonly onclick="this.select()">
+          <button type="button" class="btn btn-primary btn-sm" onclick="copyNewKey()">복사</button>
+        </div>
+        <small style="color: var(--text-light); display: block; margin-top: 10px;">
+          생성된 키는 딱 한 번만 표시됩니다. Authorization: Bearer &lt;key&gt; 헤더로 사용하세요.
+        </small>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Keys</span>
+        </div>
+        <div id="keys-table" class="table-container">
+          <!-- Keys table will be loaded here -->
+        </div>
+      </div>
+    </div>
   </main>
+
+  <!-- Login Overlay -->
+  <div id="login-overlay">
+    <div class="login-card">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <span>Pg</span>Search
+      </div>
+      <p>로그인이 필요합니다</p>
+      <a class="btn btn-primary" href="/auth/oidc/start" style="width: 100%; justify-content: center; text-decoration: none;">Datasee SSO로 로그인</a>
+    </div>
+  </div>
 
   <!-- Create Index Modal -->
   <div id="create-index-modal" class="modal-overlay">
@@ -797,16 +959,54 @@
     // State
     let currentIndexUid = null;
     let indexes = [];
+    let authState = { enabled: false, user: null };
 
     // API Base URL
     const API_URL = window.location.origin;
 
     // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+      const authorized = await initAuth();
+      if (!authorized) return;
       loadIndexes();
       setupNavigation();
       setupTabs();
     });
+
+    // Auth
+    async function initAuth() {
+      try {
+        const response = await fetch(`${API_URL}/auth/status`);
+        if (response.ok) authState = await response.json();
+      } catch (error) {
+        console.error('Failed to check auth status:', error);
+      }
+
+      if (authState.enabled && !authState.user) {
+        document.getElementById('login-overlay').style.display = 'flex';
+        return false;
+      }
+
+      if (authState.user) {
+        document.getElementById('user-bar').style.display = 'block';
+        document.getElementById('user-email').textContent = authState.user.email;
+        if (authState.user.role === 'admin') {
+          document.querySelectorAll('.admin-only').forEach(el => el.removeAttribute('hidden'));
+        } else {
+          document.body.classList.add('is-member');
+        }
+      }
+      return true;
+    }
+
+    async function logout() {
+      try {
+        await fetch(`${API_URL}/auth/logout`, { method: 'POST' });
+      } catch (error) {
+        console.error('Logout failed:', error);
+      }
+      window.location.reload();
+    }
 
     // Navigation
     function setupNavigation() {
@@ -826,6 +1026,10 @@
 
       if (page === 'search') {
         loadSearchIndexes();
+      } else if (page === 'members') {
+        loadMembers();
+      } else if (page === 'keys') {
+        loadApiKeys();
       }
     }
 
@@ -1023,7 +1227,7 @@
               <tr>
                 ${displayKeys.map(key => `<td>${formatCellValue(doc[key])}</td>`).join('')}
                 <td>
-                  <button class="btn btn-danger btn-sm" onclick="deleteDocument('${doc[getDocumentId(doc)]}')">Delete</button>
+                  <button class="btn btn-danger btn-sm write-only" onclick="deleteDocument('${doc[getDocumentId(doc)]}')">Delete</button>
                 </td>
               </tr>
             `).join('')}
@@ -1248,6 +1452,160 @@
       }).join('');
 
       container.innerHTML = html;
+    }
+
+    // Members (admin only)
+    async function loadMembers() {
+      try {
+        const data = await apiCall('/auth/users');
+        renderMembers(data.results);
+      } catch (error) {
+        console.error('Failed to load members:', error);
+      }
+    }
+
+    function renderMembers(users) {
+      const container = document.getElementById('members-table');
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(user => {
+              const isSelf = authState.user && user.email === authState.user.email;
+              const nextRole = user.role === 'admin' ? 'member' : 'admin';
+              return `
+                <tr>
+                  <td>${user.email}</td>
+                  <td>${user.name || '-'}</td>
+                  <td><span class="badge badge-primary">${user.role}</span></td>
+                  <td>${user.is_active ? 'Active' : 'Inactive'}</td>
+                  <td>${user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '-'}</td>
+                  <td>
+                    <button class="btn btn-secondary btn-sm" ${isSelf ? 'disabled' : ''}
+                      onclick="updateMember(${user.id}, { role: '${nextRole}' })">
+                      ${user.role === 'admin' ? 'Make Member' : 'Make Admin'}
+                    </button>
+                    <button class="btn ${user.is_active ? 'btn-danger' : 'btn-primary'} btn-sm" ${isSelf ? 'disabled' : ''}
+                      onclick="updateMember(${user.id}, { is_active: ${!user.is_active} })">
+                      ${user.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function updateMember(id, patch) {
+      try {
+        await apiCall(`/auth/users/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(patch)
+        });
+        showToast('Member updated!', 'success');
+        loadMembers();
+      } catch (error) {
+        // Error handled in apiCall
+      }
+    }
+
+    // API Keys (admin only)
+    async function loadApiKeys() {
+      try {
+        const data = await apiCall('/auth/keys');
+        renderApiKeys(data.results);
+      } catch (error) {
+        console.error('Failed to load API keys:', error);
+      }
+    }
+
+    function renderApiKeys(keys) {
+      const container = document.getElementById('keys-table');
+
+      if (keys.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>No API keys yet. Create one above!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Created</th>
+              <th>Last Used</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${keys.map(key => `
+              <tr>
+                <td>${key.name}</td>
+                <td>${new Date(key.created_at).toLocaleString()}</td>
+                <td>${key.last_used_at ? new Date(key.last_used_at).toLocaleString() : '-'}</td>
+                <td>
+                  <button class="btn btn-danger btn-sm" onclick="deleteApiKey(${key.id}, '${key.name.replace(/'/g, "\\'")}')">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function createApiKey(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-key-name').value.trim();
+      if (!name) return;
+
+      try {
+        const result = await apiCall('/auth/keys', {
+          method: 'POST',
+          body: JSON.stringify({ name })
+        });
+        document.getElementById('new-key-name').value = '';
+        document.getElementById('new-key-value').value = result.key;
+        document.getElementById('new-key-box').style.display = 'flex';
+        showToast('API key created! Copy it now — it will not be shown again.', 'success');
+        loadApiKeys();
+      } catch (error) {
+        // Error handled in apiCall
+      }
+    }
+
+    function copyNewKey() {
+      const input = document.getElementById('new-key-value');
+      input.select();
+      navigator.clipboard.writeText(input.value)
+        .then(() => showToast('Key copied to clipboard!', 'success'))
+        .catch(() => document.execCommand('copy'));
+    }
+
+    async function deleteApiKey(id, name) {
+      if (!confirm(`Delete API key "${name}"?`)) return;
+
+      try {
+        await apiCall(`/auth/keys/${id}`, { method: 'DELETE' });
+        showToast('API key deleted!', 'success');
+        loadApiKeys();
+      } catch (error) {
+        // Error handled in apiCall
+      }
     }
 
     // Utilities

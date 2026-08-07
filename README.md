@@ -116,6 +116,45 @@ Built-in web UI at http://localhost:7700
 | `DB_PASSWORD` | - | Database password |
 | `DB_NAME` | pgsearch | Database name |
 
+## Authentication (optional)
+
+Authentication is **fully off by default**. When the OIDC environment variables below are absent, PgSearch runs in open mode and every endpoint is accessible without credentials (backwards compatible).
+
+To enable it, configure an OIDC identity provider:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OIDC_ISSUER` | - | OIDC issuer URL (discovery via `/.well-known/openid-configuration`) |
+| `OIDC_CLIENT_ID` | `pgsearch` | OIDC client ID |
+| `OIDC_CLIENT_SECRET` | - | OIDC client secret |
+| `PGSEARCH_PUBLIC_URL` | - | Public base URL of this instance (used for the OIDC `redirect_uri`) |
+| `PGSEARCH_ADMIN_EMAILS` | - | Comma-separated emails that get the `admin` role on login |
+| `PGSEARCH_SESSION_SECRET` | random per boot | Secret for signing session cookies. Set it, or sessions reset on restart |
+
+Auth is enabled when `OIDC_ISSUER`, `OIDC_CLIENT_SECRET`, and `PGSEARCH_PUBLIC_URL` are all set. Register `PGSEARCH_PUBLIC_URL + /auth/oidc/callback` as the redirect URI in your IdP.
+
+### Roles
+
+Users are provisioned automatically on first SSO login (JIT):
+
+- **admin** — full read/write access, plus member and API key management in the dashboard. Assigned when the email is in `PGSEARCH_ADMIN_EMAILS`, or when it is the very first user.
+- **member** — read/search-only via the dashboard and session cookie. Write requests return `403`.
+
+Admins can promote/demote members and deactivate accounts in the dashboard's **Members** page (self-demotion/deactivation is blocked to prevent lockout).
+
+### API Keys
+
+For programmatic access (SDKs, servers), admins can create API keys in the dashboard's **API Keys** page. Keys are shown once at creation and only a SHA-256 hash is stored. Use them Meilisearch-style:
+
+```bash
+curl http://localhost:7700/indexes/movies/search \
+  -H 'Authorization: Bearer <your-api-key>' \
+  -H 'Content-Type: application/json' \
+  -d '{"q": "wonder"}'
+```
+
+API keys have full read/write access.
+
 ## Meilisearch Compatibility
 
 | Feature | Status |
