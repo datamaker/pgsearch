@@ -27,7 +27,12 @@ function unquote(value: string): string {
 }
 
 // 단일 조건 파싱: "field = 'value'" 또는 "field > 100"
-function parseCondition(condition: string, paramIndex: number): ParsedCondition {
+//
+// 필드명은 사용자 입력이므로 SQL에 문자열로 끼워넣지 않고 바인드 파라미터로 넘긴다
+// (`data->>$n`). PostgreSQL의 `->>`/`?` 연산자는 우변 키를 파라미터로 받으므로,
+// 이렇게 하면 필드명을 통한 SQL 인젝션이 구조적으로 불가능해진다. `startIndex`부터
+// 순서대로 플레이스홀더를 소비하며, 반환하는 `params`가 그 순서와 정확히 일치한다.
+function parseCondition(condition: string, startIndex: number): ParsedCondition {
   condition = condition.trim();
 
   // 연산자 찾기
@@ -42,13 +47,13 @@ function parseCondition(condition: string, paramIndex: number): ParsedCondition 
 
       if (isNumeric) {
         return {
-          sql: `(data->>'${field}')::numeric ${sqlOp} $${paramIndex}`,
-          params: [Number(value)],
+          sql: `(data->>$${startIndex})::numeric ${sqlOp} $${startIndex + 1}`,
+          params: [field, Number(value)],
         };
       } else {
         return {
-          sql: `data->>'${field}' ${sqlOp} $${paramIndex}`,
-          params: [value],
+          sql: `data->>$${startIndex} ${sqlOp} $${startIndex + 1}`,
+          params: [field, value],
         };
       }
     }
@@ -57,17 +62,17 @@ function parseCondition(condition: string, paramIndex: number): ParsedCondition 
   // IS NULL / IS NOT NULL
   if (condition.toLowerCase().includes(' is null')) {
     const field = condition.replace(/\s+is\s+null/i, '').trim();
-    return { sql: `data->>'${field}' IS NULL`, params: [] };
+    return { sql: `data->>$${startIndex} IS NULL`, params: [field] };
   }
   if (condition.toLowerCase().includes(' is not null')) {
     const field = condition.replace(/\s+is\s+not\s+null/i, '').trim();
-    return { sql: `data->>'${field}' IS NOT NULL`, params: [] };
+    return { sql: `data->>$${startIndex} IS NOT NULL`, params: [field] };
   }
 
   // EXISTS
   if (condition.toLowerCase().startsWith('exists(')) {
     const field = condition.slice(7, -1).trim();
-    return { sql: `data ? '${field}'`, params: [] };
+    return { sql: `data ? $${startIndex}`, params: [field] };
   }
 
   // IN 연산자: field IN ['a', 'b']
@@ -76,8 +81,8 @@ function parseCondition(condition: string, paramIndex: number): ParsedCondition 
     const field = inMatch[1];
     const values = inMatch[2].split(',').map(v => unquote(v.trim()));
     return {
-      sql: `data->>'${field}' = ANY($${paramIndex})`,
-      params: [values],
+      sql: `data->>$${startIndex} = ANY($${startIndex + 1})`,
+      params: [field, values],
     };
   }
 
@@ -85,10 +90,9 @@ function parseCondition(condition: string, paramIndex: number): ParsedCondition 
 }
 
 // 문자열 필터 파싱 (AND, OR 지원)
-function parseStringFilter(filter: string): ParsedCondition {
+function parseStringFilter(filter: string, startParamIndex: number): ParsedCondition {
   let sql = '';
   const params: unknown[] = [];
-  let paramIndex = 1;
 
   // 괄호 처리를 위한 간단한 토큰화
   // 실제 구현에서는 더 정교한 파서가 필요
@@ -106,7 +110,7 @@ function parseStringFilter(filter: string): ParsedCondition {
     } else if (token === ')') {
       sql += ')';
     } else if (token) {
-      const condition = parseCondition(token, params.length + 1);
+      const condition = parseCondition(token, startParamIndex + params.length);
       sql += condition.sql;
       params.push(...condition.params);
     }
@@ -167,7 +171,7 @@ function tokenize(filter: string): string[] {
 
 // 배열 필터 파싱 (Meilisearch 형식)
 // 외부 배열 = AND, 내부 배열 = OR
-function parseArrayFilter(filter: string[] | string[][]): ParsedCondition {
+function parseArrayFilter(filter: string[] | string[][], startParamIndex: number): ParsedCondition {
   const params: unknown[] = [];
   const conditions: string[] = [];
 
@@ -176,13 +180,13 @@ function parseArrayFilter(filter: string[] | string[][]): ParsedCondition {
       // 내부 배열은 OR로 연결
       const orConditions: string[] = [];
       for (const subItem of item) {
-        const condition = parseCondition(subItem, params.length + 1);
+        const condition = parseCondition(subItem, startParamIndex + params.length);
         orConditions.push(condition.sql);
         params.push(...condition.params);
       }
       conditions.push(`(${orConditions.join(' OR ')})`);
     } else {
-      const condition = parseCondition(item, params.length + 1);
+      const condition = parseCondition(item, startParamIndex + params.length);
       conditions.push(condition.sql);
       params.push(...condition.params);
     }
@@ -204,11 +208,11 @@ export function parseFilter(
   }
 
   if (typeof filter === 'string') {
-    return parseStringFilter(filter);
+    return parseStringFilter(filter, startParamIndex);
   }
 
   if (Array.isArray(filter)) {
-    return parseArrayFilter(filter);
+    return parseArrayFilter(filter, startParamIndex);
   }
 
   return null;
