@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { testConnection, closePool } from './db/connection.js';
+import { runMigrations } from './db/migrate.js';
 import { indexRoutes } from './routes/indexes.js';
 import { documentRoutes } from './routes/documents.js';
 import { searchRoutes } from './routes/search.js';
@@ -79,6 +80,12 @@ async function start(): Promise<void> {
     }
 
     console.log('Database connected successfully');
+
+    // Bring the schema up to date before serving. Idempotent, so it's safe on
+    // every boot and makes `docker compose up` work against an empty database
+    // (the container CMD is `node dist/index.js`, which otherwise never ran
+    // migrations — every request then 500'd).
+    await runMigrations();
 
     await fastify.listen({
       port: config.port,
