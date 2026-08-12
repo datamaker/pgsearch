@@ -2,7 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="color-scheme" content="light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="PgSearch">
   <title>PgSearch Dashboard</title>
   <style>
     * {
@@ -22,6 +26,16 @@
       --text: #2d3436;
       --text-light: #636e72;
       --border: #e9ecef;
+      --sidebar-w: 260px;
+      --topbar-h: 56px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
     }
 
     body {
@@ -32,9 +46,15 @@
       min-height: 100vh;
     }
 
+    /* Inputs don't inherit the body font by default */
+    button, input, select, textarea {
+      font-family: inherit;
+    }
+
     /* Sidebar */
     .sidebar {
-      width: 260px;
+      width: var(--sidebar-w);
+      flex-shrink: 0;
       background: var(--sidebar-bg);
       color: white;
       padding: 20px 0;
@@ -69,12 +89,14 @@
 
     .nav-item {
       padding: 12px 20px;
+      min-height: 44px;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 12px;
       transition: all 0.2s;
       border-left: 3px solid transparent;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .nav-item:hover, .nav-item.active {
@@ -85,12 +107,80 @@
     .nav-item svg {
       width: 20px;
       height: 20px;
+      flex-shrink: 0;
       opacity: 0.7;
+    }
+
+    /* Mobile Top Bar (hidden on desktop) */
+    .topbar {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: calc(var(--topbar-h) + var(--safe-top));
+      padding: var(--safe-top) max(8px, var(--safe-right)) 0 max(8px, var(--safe-left));
+      background: var(--sidebar-bg);
+      color: white;
+      align-items: center;
+      gap: 4px;
+      z-index: 200;
+    }
+
+    .topbar-title {
+      font-size: 17px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: inherit;
+      border-radius: 10px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .icon-btn:active {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .icon-btn svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .sidebar-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.45);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s, visibility 0.25s;
+      z-index: 250;
+    }
+
+    .sidebar-backdrop.active {
+      opacity: 1;
+      visibility: visible;
     }
 
     /* Main Content */
     .main {
       flex: 1;
+      min-width: 0;
       padding: 30px;
       overflow-y: auto;
     }
@@ -144,6 +234,11 @@
       font-size: 12px;
     }
 
+    .btn-block {
+      width: 100%;
+      justify-content: center;
+    }
+
     /* Cards */
     .card {
       background: var(--card-bg);
@@ -168,7 +263,7 @@
     /* Index Grid */
     .index-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
       gap: 20px;
     }
 
@@ -195,6 +290,7 @@
       font-size: 18px;
       font-weight: 600;
       margin-bottom: 8px;
+      word-break: break-all;
     }
 
     .index-meta {
@@ -252,6 +348,8 @@
     /* Table */
     .table-container {
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
     }
 
     table {
@@ -263,6 +361,11 @@
       padding: 12px 16px;
       text-align: left;
       border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td .btn + .btn {
+      margin-left: 6px;
     }
 
     th {
@@ -330,8 +433,14 @@
       background: none;
       border: none;
       font-size: 24px;
+      line-height: 1;
       cursor: pointer;
       color: var(--text-light);
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      margin: -10px -10px -10px 0;
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* Form */
@@ -419,6 +528,8 @@
       margin-bottom: -2px;
       transition: all 0.2s;
       font-weight: 500;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .tab:hover {
@@ -468,13 +579,17 @@
 
     /* JSON Viewer */
     .json-viewer {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
       background: #1e1e1e;
       color: #d4d4d4;
       padding: 16px;
       border-radius: 8px;
       font-family: 'Monaco', 'Menlo', monospace;
       font-size: 13px;
-      overflow-x: auto;
+      /* Keep the pretty-printed indentation, but wrap instead of scrolling sideways */
+      white-space: pre-wrap;
+      word-break: break-word;
       max-height: 400px;
       overflow-y: auto;
     }
@@ -578,6 +693,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
       background: var(--bg);
       border: 2px dashed var(--primary);
       border-radius: 8px;
@@ -586,7 +702,8 @@
     }
 
     .key-box input {
-      flex: 1;
+      flex: 1 1 200px;
+      min-width: 0;
       border: none;
       background: none;
       font-family: 'Monaco', 'Menlo', monospace;
@@ -594,35 +711,225 @@
       outline: none;
     }
 
+    /* Lock background scroll while a sheet/drawer is open */
+    body.no-scroll {
+      overflow: hidden;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
+      body {
+        display: block;
+        padding-top: calc(var(--topbar-h) + var(--safe-top));
+      }
+
+      .topbar {
+        display: flex;
+      }
+
+      /* Off-canvas drawer, opened by the top bar menu button */
       .sidebar {
         position: fixed;
-        left: -260px;
-        height: 100%;
-        z-index: 100;
-        transition: left 0.3s;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: min(82vw, 300px);
+        padding: calc(20px + var(--safe-top)) 0 calc(20px + var(--safe-bottom));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 300;
       }
 
       .sidebar.open {
-        left: 0;
+        transform: translateX(0);
+      }
+
+      .nav-item {
+        min-height: 48px;
       }
 
       .main {
-        padding: 20px;
+        padding: 16px max(16px, var(--safe-right)) calc(24px + var(--safe-bottom)) max(16px, var(--safe-left));
+        overflow: visible;
+      }
+
+      .header {
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .header h1 {
+        flex: 1 1 100%;
+        font-size: 22px;
+        word-break: break-word;
+      }
+
+      .header .btn {
+        flex: 1;
+        justify-content: center;
+      }
+
+      /* Destructive actions stay small so they aren't the easiest thing to hit */
+      .header .btn-danger {
+        flex: 0 0 auto;
+      }
+
+      .card {
+        padding: 16px;
+        border-radius: 10px;
+      }
+
+      .card-header {
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .index-grid {
+        gap: 12px;
+      }
+
+      .index-card {
+        padding: 16px;
+      }
+
+      /* Stack the query field above its button so neither gets squeezed */
+      .search-box {
+        flex-direction: column;
+      }
+
+      .search-box .btn {
+        justify-content: center;
+        padding: 13px 20px;
+      }
+
+      /* 16px keeps iOS Safari from zooming in on focus */
+      .form-input, .form-textarea, .search-input {
+        font-size: 16px;
+      }
+
+      .btn {
+        min-height: 44px;
+      }
+
+      .btn-sm {
+        min-height: 36px;
+        padding: 8px 12px;
+      }
+
+      .tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .tab {
+        flex: 1 0 auto;
+        text-align: center;
+        padding: 12px 16px;
+      }
+
+      /* Let wide tables scroll edge-to-edge inside the card */
+      .table-container {
+        margin: 0 -16px;
+        padding: 0 16px;
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
+
+      .empty-state {
+        padding: 40px 16px;
+      }
+
+      .empty-state svg {
+        width: 56px;
+        height: 56px;
+        margin-bottom: 16px;
+      }
+
+      /* Modals become bottom sheets */
+      .modal-overlay {
+        align-items: flex-end;
+      }
+
+      .modal {
+        width: 100%;
+        max-width: none;
+        border-radius: 16px 16px 0 0;
+        padding: 20px 20px calc(20px + var(--safe-bottom));
+        max-height: 88vh;
+        max-height: 88dvh;
+        transform: translateY(100%);
+      }
+
+      .modal-overlay.active .modal {
+        transform: translateY(0);
+      }
+
+      .modal-title {
+        font-size: 18px;
+      }
+
+      .toast {
+        left: max(12px, var(--safe-left));
+        right: max(12px, var(--safe-right));
+        bottom: calc(12px + var(--safe-bottom));
+        text-align: center;
+      }
+
+      .login-card {
+        padding: 32px 20px;
+      }
+
+      .result-item {
+        padding: 12px;
+      }
+
+      .json-viewer {
+        font-size: 12px;
+        max-height: 300px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
       }
     }
   </style>
 </head>
 <body>
+  <!-- Mobile Top Bar -->
+  <header class="topbar">
+    <button type="button" class="icon-btn" id="menu-toggle" aria-label="메뉴 열기" aria-controls="sidebar" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+    <div class="topbar-title" id="topbar-title">PgSearch</div>
+  </header>
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="logo">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.35-4.35"></path>
       </svg>
-      <span>Pg</span>Search
+      <div class="logo-text"><span>Pg</span>Search</div>
     </div>
 
     <nav class="nav-section">
@@ -709,7 +1016,9 @@
 
         <div class="search-container">
           <div class="search-box">
-            <input type="text" id="search-query" class="search-input" placeholder="Enter search query..." onkeyup="handleSearchKeyup(event)">
+            <input type="search" id="search-query" class="search-input" placeholder="Enter search query..."
+              autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"
+              onkeyup="handleSearchKeyup(event)">
             <button class="btn btn-primary" onclick="performSearch()">Search</button>
           </div>
         </div>
@@ -734,19 +1043,19 @@
         <div id="tab-options" class="tab-content">
           <div class="form-group">
             <label class="form-label">Filter</label>
-            <input type="text" id="search-filter" class="form-input" placeholder="e.g., genre = 'Sci-Fi'">
+            <input type="text" id="search-filter" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g., genre = 'Sci-Fi'">
           </div>
           <div class="form-group">
             <label class="form-label">Attributes to Highlight (comma-separated)</label>
-            <input type="text" id="search-highlight" class="form-input" placeholder="e.g., title, overview">
+            <input type="text" id="search-highlight" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g., title, overview">
           </div>
           <div class="form-group">
             <label class="form-label">Facets (comma-separated)</label>
-            <input type="text" id="search-facets" class="form-input" placeholder="e.g., genre, year">
+            <input type="text" id="search-facets" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g., genre, year">
           </div>
           <div class="form-group">
             <label class="form-label">Limit</label>
-            <input type="number" id="search-limit" class="form-input" value="20" min="1" max="100">
+            <input type="number" id="search-limit" class="form-input" inputmode="numeric" value="20" min="1" max="100">
           </div>
         </div>
       </div>
@@ -794,49 +1103,49 @@
             <div class="settings-form">
               <div class="form-group">
                 <label class="form-label">Searchable Attributes</label>
-                <input type="text" id="setting-searchable" class="form-input" placeholder='["*"] or ["title", "content"]'>
+                <input type="text" id="setting-searchable" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder='["*"] or ["title", "content"]'>
                 <small style="color: var(--text-light);">Attributes used for searching. Use ["*"] for all.</small>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Displayed Attributes</label>
-                <input type="text" id="setting-displayed" class="form-input" placeholder='["*"] or ["title", "id"]'>
+                <input type="text" id="setting-displayed" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder='["*"] or ["title", "id"]'>
                 <small style="color: var(--text-light);">Attributes returned in search results.</small>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Filterable Attributes</label>
-                <input type="text" id="setting-filterable" class="form-input" placeholder='["genre", "year"]'>
+                <input type="text" id="setting-filterable" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder='["genre", "year"]'>
                 <small style="color: var(--text-light);">Attributes that can be used as filters.</small>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Sortable Attributes</label>
-                <input type="text" id="setting-sortable" class="form-input" placeholder='["price", "date"]'>
+                <input type="text" id="setting-sortable" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder='["price", "date"]'>
                 <small style="color: var(--text-light);">Attributes that can be used for sorting.</small>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Ranking Rules</label>
-                <input type="text" id="setting-ranking" class="form-input" placeholder='["words", "typo", "proximity"]'>
+                <input type="text" id="setting-ranking" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder='["words", "typo", "proximity"]'>
                 <small style="color: var(--text-light);">Order of ranking rules.</small>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Stop Words</label>
-                <input type="text" id="setting-stopwords" class="form-input" placeholder='["the", "a", "an"]'>
+                <input type="text" id="setting-stopwords" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder='["the", "a", "an"]'>
                 <small style="color: var(--text-light);">Words to ignore during search.</small>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Synonyms (JSON)</label>
-                <textarea id="setting-synonyms" class="form-textarea" style="min-height: 80px;" placeholder='{"wolverine": ["xmen", "logan"], "wow": ["world of warcraft"]}'></textarea>
+                <textarea id="setting-synonyms" class="form-textarea" autocapitalize="off" autocorrect="off" spellcheck="false" style="min-height: 80px;" placeholder='{"wolverine": ["xmen", "logan"], "wow": ["world of warcraft"]}'></textarea>
                 <small style="color: var(--text-light);">Word synonyms for search.</small>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Distinct Attribute</label>
-                <input type="text" id="setting-distinct" class="form-input" placeholder="e.g., product_id">
+                <input type="text" id="setting-distinct" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g., product_id">
                 <small style="color: var(--text-light);">Attribute to deduplicate results.</small>
               </div>
             </div>
@@ -870,12 +1179,12 @@
         </div>
         <form onsubmit="createApiKey(event)">
           <div class="search-box">
-            <input type="text" id="new-key-name" class="form-input" placeholder="Key name (e.g., production-app)" required>
+            <input type="text" id="new-key-name" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Key name (e.g., production-app)" required>
             <button type="submit" class="btn btn-primary">Create</button>
           </div>
         </form>
         <div id="new-key-box" class="key-box" style="display: none; margin-top: 20px;">
-          <input type="text" id="new-key-value" readonly onclick="this.select()">
+          <input type="text" id="new-key-value" readonly autocapitalize="off" autocorrect="off" spellcheck="false" onclick="this.select()">
           <button type="button" class="btn btn-primary btn-sm" onclick="copyNewKey()">복사</button>
         </div>
         <small style="color: var(--text-light); display: block; margin-top: 10px;">
@@ -902,10 +1211,10 @@
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
-        <span>Pg</span>Search
+        <div class="logo-text"><span>Pg</span>Search</div>
       </div>
       <p>로그인이 필요합니다</p>
-      <a class="btn btn-primary" href="/auth/oidc/start" style="width: 100%; justify-content: center; text-decoration: none;">Datasee SSO로 로그인</a>
+      <a class="btn btn-primary btn-block" href="/auth/oidc/start" style="text-decoration: none;">Datasee SSO로 로그인</a>
     </div>
   </div>
 
@@ -919,15 +1228,15 @@
       <form onsubmit="createIndex(event)">
         <div class="form-group">
           <label class="form-label">Index UID *</label>
-          <input type="text" id="new-index-uid" class="form-input" placeholder="e.g., movies" required pattern="[a-zA-Z0-9_-]+">
+          <input type="text" id="new-index-uid" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g., movies" required pattern="[a-zA-Z0-9_-]+">
           <small style="color: var(--text-light);">Only alphanumeric characters, hyphens, and underscores</small>
         </div>
         <div class="form-group">
           <label class="form-label">Primary Key (optional)</label>
-          <input type="text" id="new-index-pk" class="form-input" placeholder="e.g., id">
+          <input type="text" id="new-index-pk" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g., id">
           <small style="color: var(--text-light);">Can be set automatically from first document</small>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Index</button>
+        <button type="submit" class="btn btn-primary btn-block">Create Index</button>
       </form>
     </div>
   </div>
@@ -942,12 +1251,12 @@
       <form onsubmit="addDocuments(event)">
         <div class="form-group">
           <label class="form-label">Documents (JSON Array) *</label>
-          <textarea id="new-documents-json" class="form-textarea" placeholder='[
+          <textarea id="new-documents-json" class="form-textarea" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder='[
   {"id": 1, "title": "Example", "content": "..."},
   {"id": 2, "title": "Another", "content": "..."}
 ]' required></textarea>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Add Documents</button>
+        <button type="submit" class="btn btn-primary btn-block">Add Documents</button>
       </form>
     </div>
   </div>
@@ -964,14 +1273,85 @@
     // API Base URL
     const API_URL = window.location.origin;
 
+    const PAGE_TITLES = {
+      indexes: 'Indexes',
+      search: 'Search',
+      members: 'Members',
+      keys: 'API Keys'
+    };
+
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
+      setupMobileNav();
       const authorized = await initAuth();
       if (!authorized) return;
       loadIndexes();
       setupNavigation();
       setupTabs();
     });
+
+    // Mobile off-canvas navigation
+    function setupMobileNav() {
+      const toggle = document.getElementById('menu-toggle');
+      const backdrop = document.getElementById('sidebar-backdrop');
+
+      setTopbarTitle(PAGE_TITLES.indexes);
+
+      toggle.addEventListener('click', () => setSidebar(!isSidebarOpen()));
+      backdrop.addEventListener('click', () => setSidebar(false));
+
+      // Any navigation inside the drawer dismisses it
+      document.getElementById('sidebar').addEventListener('click', (e) => {
+        if (e.target.closest('.nav-item')) setSidebar(false);
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (isSidebarOpen()) {
+          setSidebar(false);
+          toggle.focus();
+          return;
+        }
+        const openModal = document.querySelector('.modal-overlay.active');
+        if (openModal) closeModal(openModal.id);
+      });
+
+      // Tapping outside a sheet closes it
+      document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) closeModal(overlay.id);
+        });
+      });
+
+      // Returning to desktop width must not leave the drawer state behind
+      window.addEventListener('resize', () => {
+        if (window.innerWidth > 768 && isSidebarOpen()) setSidebar(false);
+      });
+    }
+
+    function isSidebarOpen() {
+      return document.getElementById('sidebar').classList.contains('open');
+    }
+
+    function setSidebar(open) {
+      const sidebar = document.getElementById('sidebar');
+      const toggle = document.getElementById('menu-toggle');
+      sidebar.classList.toggle('open', open);
+      document.getElementById('sidebar-backdrop').classList.toggle('active', open);
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
+      syncScrollLock();
+    }
+
+    // Body scroll stays locked while the drawer or any modal is open
+    function syncScrollLock() {
+      const locked = isSidebarOpen() || !!document.querySelector('.modal-overlay.active');
+      document.body.classList.toggle('no-scroll', locked);
+    }
+
+    function setTopbarTitle(text) {
+      document.getElementById('topbar-title').textContent = text;
+    }
 
     // Auth
     async function initAuth() {
@@ -1023,6 +1403,8 @@
     function showPage(page) {
       document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
       document.getElementById(`page-${page}`).style.display = 'block';
+      setTopbarTitle(PAGE_TITLES[page] || currentIndexUid || 'PgSearch');
+      window.scrollTo(0, 0);
 
       if (page === 'search') {
         loadSearchIndexes();
@@ -1053,10 +1435,12 @@
     // Modal
     function openModal(id) {
       document.getElementById(id).classList.add('active');
+      syncScrollLock();
     }
 
     function closeModal(id) {
       document.getElementById(id).classList.remove('active');
+      syncScrollLock();
     }
 
     function openCreateIndexModal() {
