@@ -16,6 +16,14 @@ export const config = {
   // 외부에서 접근하는 공개 URL (OIDC redirect_uri 조립에 사용)
   publicUrl: (process.env.PGSEARCH_PUBLIC_URL || '').replace(/\/$/, ''),
 
+  // CORS 허용 오리진 (쉼표 구분). 비우면 임의 오리진 허용 — 검색 API는
+  // 브라우저에서 크로스오리진으로 호출되는 것이 정상이기 때문이다. 다만
+  // 자격증명(쿠키)은 크로스오리진으로 절대 전송하지 않는다(index.ts 참고).
+  corsOrigins: (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean),
+
   database: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
