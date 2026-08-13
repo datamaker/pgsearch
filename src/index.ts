@@ -22,9 +22,15 @@ const fastify = Fastify({
 });
 
 // CORS 설정
+//
+// credentials(쿠키)를 크로스오리진으로 보내지 않는다. 이전의 origin:true +
+// credentials:true 조합은 임의 사이트가 관리자 세션 쿠키로 요청을 보낼 수 있게
+// 했다 — 그게 실제 취약점이었다. 검색 API는 브라우저에서 크로스오리진으로
+// 불리는 것이 정상이라 오리진은 기본 허용하되(CORS_ORIGIN으로 잠글 수 있음),
+// 자격증명은 끈다. 동일 출처 대시보드 요청은 CORS 대상이 아니라 영향 없다.
 await fastify.register(cors, {
-  origin: true,
-  credentials: true,
+  origin: config.corsOrigins.length > 0 ? config.corsOrigins : true,
+  credentials: false,
 });
 
 // 쿠키 파싱 (세션/OIDC state 쿠키)
