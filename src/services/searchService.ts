@@ -81,38 +81,45 @@ export async function search(
                    similarity(search_text, $3) DESC`;
   }
 
-  // 필터 적용
-  const filterResult = parseFilter(filter);
+  // 필터 적용 — parseFilter가 paramIndex부터 직접 올바른 플레이스홀더를 emit하므로
+  // (이전의 $1→$10 오매칭이 있던) 문자열 replace 재인덱싱이 필요 없다.
+  const filterResult = parseFilter(filter, paramIndex);
   if (filterResult && filterResult.sql) {
-    // 파라미터 인덱스 조정
-    let adjustedSql = filterResult.sql;
-    filterResult.params.forEach((param, i) => {
-      adjustedSql = adjustedSql.replace(`$${i + 1}`, `$${paramIndex + i}`);
-    });
-    whereClause += ` AND (${adjustedSql})`;
+    whereClause += ` AND (${filterResult.sql})`;
     params.push(...filterResult.params);
     paramIndex += filterResult.params.length;
   }
 
-  // 정렬 적용
+  // 여기까지가 WHERE 절이 참조하는 파라미터 전부. count 쿼리는 이것만 쓴다.
+  const whereParams = [...params];
+
+  // 정렬 적용 — 필드명은 사용자 입력이므로 파라미터로, 방향은 화이트리스트로만.
+  const orderParams: unknown[] = [];
   if (sort && sort.length > 0) {
-    const sortClauses = sort.map(s => {
+    const sortClauses: string[] = [];
+    for (const s of sort) {
       const [field, direction] = s.split(':');
+      if (!field) continue;
       const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
-      return `data->>'${field}' ${dir}`;
-    });
-    orderClause = sortClauses.join(', ');
-  } else if (!orderClause) {
+      sortClauses.push(`data->>$${paramIndex + orderParams.length} ${dir}`);
+      orderParams.push(field);
+    }
+    if (sortClauses.length > 0) {
+      orderClause = sortClauses.join(', ');
+    }
+  }
+  if (!orderClause) {
     orderClause = 'created_at DESC';
   }
 
-  // 전체 개수 조회
+  // 전체 개수 조회 (정렬은 개수에 영향 없음 → whereParams만)
   const countSql = `SELECT COUNT(*) FROM ms_documents WHERE ${whereClause}`;
-  const countResult = await query<{ count: string }>(countSql, params.slice(0, paramIndex - 1));
+  const countResult = await query<{ count: string }>(countSql, whereParams);
   const estimatedTotalHits = parseInt(countResult.rows[0].count, 10);
 
-  // 검색 결과 조회
-  const searchParams = [...params];
+  // 검색 결과 조회 — where 파라미터 + 정렬 파라미터 + limit/offset
+  const searchParams = [...whereParams, ...orderParams];
+  const limitIndex = paramIndex + orderParams.length;
   searchParams.push(limit, offset);
 
   const headlineOptions = `StartSel=${highlightPreTag}, StopSel=${highlightPostTag}, MaxWords=35, MinWords=15`;
@@ -130,7 +137,7 @@ export async function search(
     FROM ms_documents
     WHERE ${whereClause}
     ORDER BY ${orderClause}
-    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    LIMIT $${limitIndex} OFFSET $${limitIndex + 1}
   `;
 
   const searchResult = await query<SearchRow>(searchSql, searchParams);
@@ -160,7 +167,14 @@ export async function search(
         if (attr in doc && typeof doc[attr] === 'string') {
           // 검색어가 포함된 부분을 하이라이트
           const value = doc[attr] as string;
-          const regex = new RegExp(`(${q.split(/\s+/).join('|')})`, 'gi');
+          // 검색어를 정규식 리터럴로 이스케이프 — 이스케이프하지 않으면 사용자가 넣은
+          // 메타문자가 예외나 ReDoS(정규식 기반 DoS)를 유발할 수 있다.
+          const terms = q
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+          const regex = terms.length > 0 ? new RegExp(`(${terms.join('|')})`, 'gi') : null;
+          if (!regex) continue;
           (hit._formatted as Record<string, unknown>)[attr] = value.replace(
             regex,
             `${highlightPreTag}$1${highlightPostTag}`
@@ -184,16 +198,18 @@ export async function search(
     facetDistribution = {};
 
     for (const facet of facets) {
+      // 패싯 이름도 사용자 입력 → whereParams 다음 인덱스에 파라미터로 바인딩.
+      const facetParamIndex = whereParams.length + 1;
       const facetSql = `
-        SELECT data->>'${facet}' as facet_value, COUNT(*) as count
+        SELECT data->>$${facetParamIndex} as facet_value, COUNT(*) as count
         FROM ms_documents
-        WHERE ${whereClause} AND data ? '${facet}'
-        GROUP BY data->>'${facet}'
+        WHERE ${whereClause} AND data ? $${facetParamIndex}
+        GROUP BY data->>$${facetParamIndex}
         ORDER BY count DESC
         LIMIT 100
       `;
 
-      const facetResult = await query<FacetRow>(facetSql, params.slice(0, paramIndex - 1));
+      const facetResult = await query<FacetRow>(facetSql, [...whereParams, facet]);
       facetDistribution[facet] = {};
 
       for (const row of facetResult.rows) {
