@@ -56,7 +56,9 @@ await fastify.register(async (app) => {
   await app.register(settingsRoutes);
 });
 
-// Health check
+// Health check — 컨테이너 헬스체크는 사내 서비스 전부 /healthz 로 맞춘다.
+fastify.get('/healthz', async () => ({ ok: true }));
+
 fastify.get('/health', async () => {
   const dbConnected = await testConnection();
   return {

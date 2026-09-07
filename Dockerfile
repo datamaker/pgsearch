@@ -32,8 +32,12 @@ ENV HOST=0.0.0.0
 
 EXPOSE 7700
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:7700/health || exit 1
+# 컨테이너 안에서 root 로 돌 이유가 없다.
+USER node
+
+# 사내 서비스 공통 규약: /healthz 로 살아 있는지 본다.
+# 이미지에 curl·wget 을 넣지 않으려고 node 내장 fetch 를 쓴다.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:7700/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "dist/index.js"]
