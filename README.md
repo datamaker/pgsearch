@@ -172,7 +172,7 @@ API keys have full read/write access.
 
 ## Tech Stack
 
-- Node.js 20+ / TypeScript
+- Node.js 24+ / TypeScript
 - Fastify
 - PostgreSQL 16+ with pg_trgm
 
