@@ -1,35 +1,47 @@
 services:
-  pgsearch:
-    image: datamaker/pgsearch:latest
-    container_name: pgsearch
-    ports:
-      - "7700:7700"
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=pgsearch
-      - DB_PASSWORD=pgsearch
-      - DB_NAME=pgsearch
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
   postgres:
     image: postgres:16-alpine
-    container_name: pgsearch-db
     environment:
       POSTGRES_USER: pgsearch
-      POSTGRES_PASSWORD: pgsearch
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-pgsearch}
       POSTGRES_DB: pgsearch
     volumes:
       - pgsearch_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pgsearch"]
+      test: ['CMD-SHELL', 'pg_isready -U pgsearch']
       interval: 5s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+
+  pgsearch:
+    build: .
+    # 앞단 nginx 가 TLS 를 끊고 넘겨준다 — 컨테이너를 인터넷에 직접 열지 않는다.
+    ports:
+      - '127.0.0.1:${PORT:-7700}:7700'
+    environment:
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_USER: pgsearch
+      DB_PASSWORD: ${PG_PASSWORD:-pgsearch}
+      DB_NAME: pgsearch
+      PGSEARCH_PUBLIC_URL: ${PGSEARCH_PUBLIC_URL:-}
+      PGSEARCH_ADMIN_EMAILS: ${PGSEARCH_ADMIN_EMAILS:-}
+      PGSEARCH_SESSION_SECRET: ${PGSEARCH_SESSION_SECRET:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
 
 volumes:
   pgsearch_data:
