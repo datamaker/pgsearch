@@ -1,6 +1,6 @@
 {
   "name": "pgsearch",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "PostgreSQL-based Meilisearch-compatible search engine",
   "main": "dist/index.js",
   "type": "module",

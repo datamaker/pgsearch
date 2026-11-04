@@ -1366,9 +1366,22 @@
       }
 
       if (authState.enabled && !authState.user) {
+        // Auto-start SSO so a gatehouse session carries straight in, like the
+        // forward-auth apps. `?local=1` shows the overlay with the button
+        // instead (logout lands there); a one-shot flag stops a bounce loop
+        // when the IdP sends us back without a session.
+        const AUTO_FLAG = 'pgsearch_sso_auto';
+        const local = new URLSearchParams(window.location.search).get('local') === '1';
+        const bounced = Number(sessionStorage.getItem(AUTO_FLAG) || 0) > Date.now() - 60_000;
+        if (!local && !bounced) {
+          sessionStorage.setItem(AUTO_FLAG, String(Date.now()));
+          window.location.replace('/auth/oidc/start');
+          return false;
+        }
         document.getElementById('login-overlay').style.display = 'flex';
         return false;
       }
+      sessionStorage.removeItem('pgsearch_sso_auto');
 
       if (authState.user) {
         document.getElementById('user-bar').style.display = 'block';
@@ -1388,7 +1401,8 @@
       } catch (error) {
         console.error('Logout failed:', error);
       }
-      window.location.reload();
+      // local=1 keeps the page from bouncing straight back through SSO
+      window.location.href = '/?local=1';
     }
 
     // Navigation
