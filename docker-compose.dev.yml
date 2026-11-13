@@ -11,6 +11,8 @@ services:
       - DB_USER=pgsearch
       - DB_PASSWORD=pgsearch
       - DB_NAME=pgsearch
+      # 개발용: 인증 없이 띄운다 (이미지가 NODE_ENV=production 이라 명시해야 한다)
+      - PGSEARCH_OPEN_MODE=1
     depends_on:
       postgres:
         condition: service_healthy

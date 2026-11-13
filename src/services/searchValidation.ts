@@ -18,6 +18,7 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 // 검증 에러 코드 판별 — 라우트에서 400으로 매핑할 때 쓴다.
 export function isSearchValidationError(error: unknown): boolean {
   const code = (error as { code?: unknown } | null)?.code;
+  if (error instanceof Error) return false;
   return typeof code === 'string' && (code.startsWith('invalid_search_') || code === 'bad_request');
 }
 
@@ -166,4 +167,32 @@ export function normalizeSearchRequest(body: unknown): NormalizedSearchRequest {
     sort: stringArray(body.sort, 'sort', 'invalid_search_sort'),
     showRankingScore: body.showRankingScore === true,
   };
+}
+
+// ─── 목록 엔드포인트(문서/인덱스) 페이지네이션 ─────────────────
+
+// 목록 조회의 기본 limit (Meilisearch 와 동일).
+export const DEFAULT_LIST_LIMIT = 20;
+
+function listInt(raw: unknown, field: string, code: string): number | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  // 쿼리스트링은 문자열로 온다. parseInt 는 "10abc" 를 10 으로, "-5" 를 -5 로 읽어
+  // 그대로 SQL 의 OFFSET/LIMIT 에 들어갔다(음수면 500). 숫자만으로 된 값만 받는다.
+  const value =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : NaN;
+  return nonNegativeInt(value, field, code);
+}
+
+/**
+ * 문서/인덱스 목록의 offset·limit 검증. 검색과 같은 규칙을 쓴다:
+ * 음이 아닌 정수만 허용(아니면 400), limit 은 config.search.maxLimit 으로 잘라낸다.
+ */
+export function parseListPagination(
+  queryString: { offset?: unknown; limit?: unknown } | undefined,
+  kind: 'document' | 'index'
+): { offset: number; limit: number } {
+  const q = queryString ?? {};
+  const offset = listInt(q.offset, 'offset', `invalid_${kind}_offset`) ?? 0;
+  const limit = listInt(q.limit, 'limit', `invalid_${kind}_limit`) ?? DEFAULT_LIST_LIMIT;
+  return { offset, limit: Math.min(limit, config.search.maxLimit) };
 }

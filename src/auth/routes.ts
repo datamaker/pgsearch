@@ -203,24 +203,50 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/auth/keys', async (request, reply) => {
     if (!(await requireAdmin(request, reply))) return reply;
     const { rows } = await query(
-      'SELECT id, name, created_at, last_used_at FROM api_keys ORDER BY id'
+      'SELECT id, name, created_at, last_used_at, expires_at, read_only FROM api_keys ORDER BY id'
     );
     return { results: rows };
   });
 
   // POST /auth/keys - 키 생성 (원본 키는 이 응답에서 딱 한 번만 노출)
-  fastify.post<{ Body: { name?: string } }>('/auth/keys', async (request, reply) => {
+  //   read_only: true 면 조회·검색만 가능한 키 (기본 false)
+  //   expires_at: ISO 8601 만료 시각 (기본 null = 무기한). 과거 시각은 거부한다.
+  fastify.post<{
+    Body: { name?: unknown; read_only?: unknown; expires_at?: unknown };
+  }>('/auth/keys', async (request, reply) => {
     if (!(await requireAdmin(request, reply))) return reply;
-    const name = (request.body?.name ?? '').trim();
+    const body = request.body ?? {};
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (!name) {
       reply.status(400);
       return { message: 'name is required' };
     }
+    if (name.length > 100) {
+      reply.status(400);
+      return { message: 'name must be at most 100 characters' };
+    }
+    if (body.read_only !== undefined && body.read_only !== null && typeof body.read_only !== 'boolean') {
+      reply.status(400);
+      return { message: 'read_only must be a boolean' };
+    }
+    let expiresAt: Date | null = null;
+    if (body.expires_at !== undefined && body.expires_at !== null && body.expires_at !== '') {
+      const parsed = typeof body.expires_at === 'string' ? new Date(body.expires_at) : null;
+      if (!parsed || Number.isNaN(parsed.getTime())) {
+        reply.status(400);
+        return { message: 'expires_at must be an ISO 8601 date-time' };
+      }
+      if (parsed.getTime() <= Date.now()) {
+        reply.status(400);
+        return { message: 'expires_at must be in the future' };
+      }
+      expiresAt = parsed;
+    }
     const rawKey = randomBytes(32).toString('base64url');
     const { rows } = await query(
-      `INSERT INTO api_keys (name, key_hash) VALUES ($1, $2)
-       RETURNING id, name, created_at, last_used_at`,
-      [name, sha256Hex(rawKey)]
+      `INSERT INTO api_keys (name, key_hash, read_only, expires_at) VALUES ($1, $2, $3, $4)
+       RETURNING id, name, created_at, last_used_at, expires_at, read_only`,
+      [name, sha256Hex(rawKey), body.read_only === true, expiresAt]
     );
     reply.status(201);
     return { ...rows[0], key: rawKey };

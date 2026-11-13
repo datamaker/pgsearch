@@ -18,6 +18,17 @@ export function createError(message: string, code: string): MsError {
   };
 }
 
+/**
+ * 서비스 계층이 createError 로 만든 Meilisearch 형식 에러인가.
+ * `.code` 가 있는지만 보면 PostgreSQL 에러(code: '22P02' 등)도 걸려서, DB 에러가
+ * 400 응답 본문으로 그대로 나갔다. Error 인스턴스는 전부 제외한다.
+ */
+export function isMsError(error: unknown): error is MsError {
+  if (error instanceof Error || typeof error !== 'object' || error === null) return false;
+  const e = error as Partial<MsError>;
+  return typeof e.code === 'string' && typeof e.message === 'string' && typeof e.type === 'string';
+}
+
 export async function listIndexes(offset = 0, limit = 20): Promise<MsIndexListResponse> {
   const countResult = await query<{ count: string }>('SELECT COUNT(*) FROM ms_indexes');
   const total = parseInt(countResult.rows[0].count, 10);

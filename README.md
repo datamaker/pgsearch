@@ -118,7 +118,7 @@ Built-in web UI at http://localhost:7700
 
 ## Authentication (optional)
 
-Authentication is **fully off by default**. When the OIDC environment variables below are absent, PgSearch runs in open mode and every endpoint is accessible without credentials (backwards compatible).
+Without the OIDC environment variables below, PgSearch runs in **open mode**: every endpoint is accessible without credentials. That is only allowed implicitly in development. With `NODE_ENV=production` (the Docker image sets it) the server **refuses to start** unless auth is configured or you opt in explicitly with `PGSEARCH_OPEN_MODE=1` — a missing variable must not silently expose the whole API.
 
 To enable it, configure an OIDC identity provider:
 
@@ -130,6 +130,8 @@ To enable it, configure an OIDC identity provider:
 | `PGSEARCH_PUBLIC_URL` | - | Public base URL of this instance (used for the OIDC `redirect_uri`) |
 | `PGSEARCH_ADMIN_EMAILS` | - | Comma-separated emails that get the `admin` role on login |
 | `PGSEARCH_SESSION_SECRET` | random per boot | Secret for signing session cookies. Set it, or sessions reset on restart |
+| `PGSEARCH_OPEN_MODE` | - | Set to `1` to run **without authentication on purpose** in production. Ignored when OIDC is configured |
+| `GATEHOUSE_STATUS_URL` / `GATEHOUSE_STATUS_SECRET` | - | Optional. When both are set, dashboard sessions are re-checked against the IdP's account status (60 s cache) and rejected once the account is deactivated or its sessions are revoked |
 
 Auth is enabled when `OIDC_ISSUER`, `OIDC_CLIENT_SECRET`, and `PGSEARCH_PUBLIC_URL` are all set. Register `PGSEARCH_PUBLIC_URL + /auth/oidc/callback` as the redirect URI in your IdP.
 
@@ -153,7 +155,7 @@ curl http://localhost:7700/indexes/movies/search \
   -d '{"q": "wonder"}'
 ```
 
-API keys have full read/write access.
+By default a key has full read/write access and never expires. When creating a key you can optionally make it **read-only** (search and `GET` only — every write returns `403`) and/or give it an **expiry** (`expires_at`; expired keys return `401`). Keys created before these options existed keep full access and no expiry.
 
 ## Meilisearch Compatibility
 

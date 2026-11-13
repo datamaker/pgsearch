@@ -24,18 +24,30 @@ interface FacetRow {
   count: string;
 }
 
-// tsquery용 검색어 변환
-function toTsQuery(q: string): string {
-  if (!q || q.trim() === '') return '';
+// PostgreSQL text 는 NUL 을 담지 못한다(바인드하면 에러). 그 밖의 제어 문자도 검색에 의미가 없다.
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 
-  // 단어들을 추출하고 prefix 매칭을 위해 :* 추가
-  const words = q.trim().split(/\s+/).filter(w => w.length > 0);
-  return words.map(w => `${w}:*`).join(' & ');
+// tsquery용 검색어 변환
+//
+// 예전에는 단어를 그대로 `단어:*` 로 이어 붙였다. 검색어에 tsquery 문법 문자
+// (& | ! ( ) : ' < > \ *)가 들어 있으면 to_tsquery 가 문법 오류를 내서 500 이 났다
+// (예: "C++ (R&D)", "it's", "a:b"). 이제 각 단어를 tsquery 의 따옴표 리터럴('...')로
+// 감싸 문법이 아니라 글자로 취급되게 한다. 글자·숫자가 하나도 없는 단어는 버린다.
+export function toTsQuery(q: string): string {
+  if (!q) return '';
+  const words = q
+    .replace(CONTROL_CHARS, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(w => /[\p{L}\p{N}]/u.test(w));
+  return words
+    .map(w => `'${w.replace(/\\/g, '\\\\').replace(/'/g, "''")}':*`)
+    .join(' & ');
 }
 
 // 검색어 정규화 (pg_trgm용)
 function normalizeQuery(q: string): string {
-  return q.trim().toLowerCase();
+  return q.replace(CONTROL_CHARS, ' ').trim().toLowerCase();
 }
 
 export async function search(

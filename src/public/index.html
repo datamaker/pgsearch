@@ -1185,6 +1185,16 @@
             <input type="text" id="new-key-name" class="form-input" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Key name (e.g., production-app)" required>
             <button type="submit" class="btn btn-primary">Create</button>
           </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center; margin-top: 12px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="new-key-readonly">
+              읽기 전용 (검색·조회만 허용)
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px;">
+              만료 시각 (선택)
+              <input type="datetime-local" id="new-key-expires" class="form-input" style="width: auto;">
+            </label>
+          </div>
         </form>
         <div id="new-key-box" class="key-box" style="display: none; margin-top: 20px;">
           <input type="text" id="new-key-value" readonly autocapitalize="off" autocorrect="off" spellcheck="false" onclick="this.select()">
@@ -1286,6 +1296,7 @@
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
       setupMobileNav();
+      setupDelegatedActions();
       const authorized = await initAuth();
       if (!authorized) return;
       loadIndexes();
@@ -1523,14 +1534,16 @@
         return;
       }
 
+      // 값은 전부 escapeHtml 을 거친다. 클릭은 inline onclick 대신 data-uid +
+      // 위임 리스너(setupDelegatedActions)로 처리한다.
       container.innerHTML = indexes.map(index => `
-        <div class="index-card" onclick="openIndexDetail('${index.uid}')">
-          <div class="index-name">${index.uid}</div>
+        <div class="index-card" data-uid="${escapeHtml(index.uid)}">
+          <div class="index-name">${escapeHtml(index.uid)}</div>
           <div class="index-meta">
-            Primary Key: <span class="badge badge-primary">${index.primaryKey || 'Not set'}</span>
+            Primary Key: <span class="badge badge-primary">${escapeHtml(index.primaryKey || 'Not set')}</span>
           </div>
           <div class="index-meta" style="margin-top: 8px;">
-            Created: ${new Date(index.createdAt).toLocaleDateString()}
+            Created: ${escapeHtml(new Date(index.createdAt).toLocaleDateString())}
           </div>
         </div>
       `).join('');
@@ -1558,7 +1571,7 @@
       if (!confirm(`Are you sure you want to delete index "${currentIndexUid}"?`)) return;
 
       try {
-        await apiCall(`/indexes/${currentIndexUid}`, { method: 'DELETE' });
+        await apiCall(`/indexes/${pathSeg(currentIndexUid)}`, { method: 'DELETE' });
         showToast('Index deleted successfully!', 'success');
         showPage('indexes');
         loadIndexes();
@@ -1587,7 +1600,7 @@
 
     async function loadDocuments() {
       try {
-        const data = await apiCall(`/indexes/${currentIndexUid}/documents?limit=100`);
+        const data = await apiCall(`/indexes/${pathSeg(currentIndexUid)}/documents?limit=100`);
         renderDocuments(data.results, data.total);
       } catch (error) {
         console.error('Failed to load documents:', error);
@@ -1615,20 +1628,20 @@
       const displayKeys = allKeys.slice(0, 5); // Show max 5 columns
 
       container.innerHTML = `
-        <p style="margin-bottom: 15px; color: var(--text-light);">Total: ${total} documents</p>
+        <p style="margin-bottom: 15px; color: var(--text-light);">Total: ${escapeHtml(total)} documents</p>
         <table>
           <thead>
             <tr>
-              ${displayKeys.map(key => `<th>${key}</th>`).join('')}
+              ${displayKeys.map(key => `<th>${escapeHtml(key)}</th>`).join('')}
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             ${docs.map(doc => `
               <tr>
-                ${displayKeys.map(key => `<td>${formatCellValue(doc[key])}</td>`).join('')}
+                ${displayKeys.map(key => `<td>${escapeHtml(formatCellValue(doc[key]))}</td>`).join('')}
                 <td>
-                  <button class="btn btn-danger btn-sm write-only" onclick="deleteDocument('${doc[getDocumentId(doc)]}')">Delete</button>
+                  <button class="btn btn-danger btn-sm write-only" data-action="delete-document" data-doc-id="${escapeHtml(doc[getDocumentId(doc)])}">Delete</button>
                 </td>
               </tr>
             `).join('')}
@@ -1656,7 +1669,7 @@
 
       try {
         const documents = JSON.parse(jsonText);
-        await apiCall(`/indexes/${currentIndexUid}/documents`, {
+        await apiCall(`/indexes/${pathSeg(currentIndexUid)}/documents`, {
           method: 'POST',
           body: JSON.stringify(documents)
         });
@@ -1674,7 +1687,7 @@
       if (!confirm(`Delete document "${docId}"?`)) return;
 
       try {
-        await apiCall(`/indexes/${currentIndexUid}/documents/${docId}`, { method: 'DELETE' });
+        await apiCall(`/indexes/${pathSeg(currentIndexUid)}/documents/${pathSeg(docId)}`, { method: 'DELETE' });
         showToast('Document deleted!', 'success');
         loadDocuments();
       } catch (error) {
@@ -1684,7 +1697,7 @@
 
     async function loadIndexSettings() {
       try {
-        const settings = await apiCall(`/indexes/${currentIndexUid}/settings`);
+        const settings = await apiCall(`/indexes/${pathSeg(currentIndexUid)}/settings`);
 
         // Populate form fields
         document.getElementById('setting-searchable').value = JSON.stringify(settings.searchableAttributes);
@@ -1729,7 +1742,7 @@
         const distinct = document.getElementById('setting-distinct').value.trim();
         settings.distinctAttribute = distinct || null;
 
-        await apiCall(`/indexes/${currentIndexUid}/settings`, {
+        await apiCall(`/indexes/${pathSeg(currentIndexUid)}/settings`, {
           method: 'PATCH',
           body: JSON.stringify(settings)
         });
@@ -1747,7 +1760,7 @@
       if (!confirm('Reset all settings to default values?')) return;
 
       try {
-        await apiCall(`/indexes/${currentIndexUid}/settings`, { method: 'DELETE' });
+        await apiCall(`/indexes/${pathSeg(currentIndexUid)}/settings`, { method: 'DELETE' });
         showToast('Settings reset to defaults!', 'success');
         loadIndexSettings();
       } catch (error) {
@@ -1759,7 +1772,7 @@
     async function loadSearchIndexes() {
       const select = document.getElementById('search-index-select');
       select.innerHTML = '<option value="">-- Select an index --</option>' +
-        indexes.map(i => `<option value="${i.uid}">${i.uid}</option>`).join('');
+        indexes.map(i => `<option value="${escapeHtml(i.uid)}">${escapeHtml(i.uid)}</option>`).join('');
     }
 
     function onSearchIndexChange() {
@@ -1801,7 +1814,7 @@
       if (facets) searchParams.facets = facets.split(',').map(s => s.trim());
 
       try {
-        const results = await apiCall(`/indexes/${indexUid}/search`, {
+        const results = await apiCall(`/indexes/${pathSeg(indexUid)}/search`, {
           method: 'POST',
           body: JSON.stringify(searchParams)
         });
@@ -1829,15 +1842,16 @@
 
       let html = `
         <div class="result-meta" style="margin-bottom: 15px;">
-          Found ${results.estimatedTotalHits} results in ${results.processingTimeMs}ms
+          Found ${escapeHtml(results.estimatedTotalHits)} results in ${escapeHtml(results.processingTimeMs)}ms
         </div>
       `;
 
       if (results.facetDistribution) {
         html += `<div style="margin-bottom: 20px;">`;
         for (const [facet, values] of Object.entries(results.facetDistribution)) {
-          html += `<strong>${facet}:</strong> `;
-          html += Object.entries(values).map(([k, v]) => `${k} (${v})`).join(', ');
+          // 패싯 이름과 값은 문서 내용에서 온다 → 이스케이프
+          html += `<strong>${escapeHtml(facet)}:</strong> `;
+          html += Object.entries(values).map(([k, v]) => `${escapeHtml(k)} (${escapeHtml(v)})`).join(', ');
           html += '<br>';
         }
         html += `</div>`;
@@ -1885,18 +1899,18 @@
               const nextRole = user.role === 'admin' ? 'member' : 'admin';
               return `
                 <tr>
-                  <td>${user.email}</td>
-                  <td>${user.name || '-'}</td>
-                  <td><span class="badge badge-primary">${user.role}</span></td>
+                  <td>${escapeHtml(user.email)}</td>
+                  <td>${escapeHtml(user.name || '-')}</td>
+                  <td><span class="badge badge-primary">${escapeHtml(user.role)}</span></td>
                   <td>${user.is_active ? 'Active' : 'Inactive'}</td>
-                  <td>${user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '-'}</td>
+                  <td>${escapeHtml(user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '-')}</td>
                   <td>
                     <button class="btn btn-secondary btn-sm" ${isSelf ? 'disabled' : ''}
-                      onclick="updateMember(${user.id}, { role: '${nextRole}' })">
+                      data-action="member-role" data-user-id="${escapeHtml(user.id)}" data-role="${escapeHtml(nextRole)}">
                       ${user.role === 'admin' ? 'Make Member' : 'Make Admin'}
                     </button>
                     <button class="btn ${user.is_active ? 'btn-danger' : 'btn-primary'} btn-sm" ${isSelf ? 'disabled' : ''}
-                      onclick="updateMember(${user.id}, { is_active: ${!user.is_active} })">
+                      data-action="member-active" data-user-id="${escapeHtml(user.id)}" data-active="${user.is_active ? 'false' : 'true'}">
                       ${user.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                   </td>
@@ -1910,7 +1924,7 @@
 
     async function updateMember(id, patch) {
       try {
-        await apiCall(`/auth/users/${id}`, {
+        await apiCall(`/auth/users/${pathSeg(id)}`, {
           method: 'PATCH',
           body: JSON.stringify(patch)
         });
@@ -1948,22 +1962,32 @@
           <thead>
             <tr>
               <th>Name</th>
+              <th>Access</th>
+              <th>Expires</th>
               <th>Created</th>
               <th>Last Used</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${keys.map(key => `
+            ${keys.map(key => {
+              const expired = key.expires_at && new Date(key.expires_at).getTime() <= Date.now();
+              const expires = key.expires_at
+                ? new Date(key.expires_at).toLocaleString() + (expired ? ' (expired)' : '')
+                : 'Never';
+              return `
               <tr>
-                <td>${key.name}</td>
-                <td>${new Date(key.created_at).toLocaleString()}</td>
-                <td>${key.last_used_at ? new Date(key.last_used_at).toLocaleString() : '-'}</td>
+                <td>${escapeHtml(key.name)}</td>
+                <td><span class="badge badge-primary">${key.read_only ? 'Read-only' : 'Full access'}</span></td>
+                <td>${escapeHtml(expires)}</td>
+                <td>${escapeHtml(new Date(key.created_at).toLocaleString())}</td>
+                <td>${escapeHtml(key.last_used_at ? new Date(key.last_used_at).toLocaleString() : '-')}</td>
                 <td>
-                  <button class="btn btn-danger btn-sm" onclick="deleteApiKey(${key.id}, '${key.name.replace(/'/g, "\\'")}')">Delete</button>
+                  <button class="btn btn-danger btn-sm" data-action="delete-key" data-key-id="${escapeHtml(key.id)}" data-key-name="${escapeHtml(key.name)}">Delete</button>
                 </td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       `;
@@ -1974,12 +1998,26 @@
       const name = document.getElementById('new-key-name').value.trim();
       if (!name) return;
 
+      // 선택 항목: 읽기 전용(검색·조회만), 만료 시각(비우면 무기한)
+      const body = { name, read_only: document.getElementById('new-key-readonly').checked };
+      const expiresRaw = document.getElementById('new-key-expires').value;
+      if (expiresRaw) {
+        const expires = new Date(expiresRaw);
+        if (Number.isNaN(expires.getTime()) || expires.getTime() <= Date.now()) {
+          showToast('만료 시각은 미래여야 합니다.', 'error');
+          return;
+        }
+        body.expires_at = expires.toISOString();
+      }
+
       try {
         const result = await apiCall('/auth/keys', {
           method: 'POST',
-          body: JSON.stringify({ name })
+          body: JSON.stringify(body)
         });
         document.getElementById('new-key-name').value = '';
+        document.getElementById('new-key-readonly').checked = false;
+        document.getElementById('new-key-expires').value = '';
         document.getElementById('new-key-value').value = result.key;
         document.getElementById('new-key-box').style.display = 'flex';
         showToast('API key created! Copy it now — it will not be shown again.', 'success');
@@ -2001,7 +2039,7 @@
       if (!confirm(`Delete API key "${name}"?`)) return;
 
       try {
-        await apiCall(`/auth/keys/${id}`, { method: 'DELETE' });
+        await apiCall(`/auth/keys/${pathSeg(id)}`, { method: 'DELETE' });
         showToast('API key deleted!', 'success');
         loadApiKeys();
       } catch (error) {
@@ -2010,6 +2048,53 @@
     }
 
     // Utilities
+
+    // HTML 에 끼워 넣는 모든 값은 이 함수를 거친다 (텍스트·속성값 공용).
+    // 문서 필드명/값, 패싯 값, 기본 키, 인덱스 uid, 키 이름 등은 API 로 누구나(키만 있으면)
+    // 넣을 수 있는 값이라, 그대로 innerHTML 에 넣으면 관리자 브라우저에서 스크립트가 실행된다.
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // URL 경로 조각 인코딩. 문서 id 에 `/`, `..`, `?` 가 들어 있으면 다른 엔드포인트
+    // (예: DELETE /indexes/<다른 인덱스>)를 치게 만들 수 있다.
+    function pathSeg(value) {
+      return encodeURIComponent(String(value ?? ''));
+    }
+
+    // 동적으로 그린 목록의 버튼/카드 클릭 처리. inline onclick="...('${값}')" 대신
+    // data-* 속성에 값을 두고(HTML 이스케이프됨) 여기서 읽는다 — 값이 JS 코드로 해석될 일이 없다.
+    function setupDelegatedActions() {
+      document.getElementById('indexes-container').addEventListener('click', (e) => {
+        const card = e.target.closest('.index-card[data-uid]');
+        if (card) openIndexDetail(card.dataset.uid);
+      });
+      document.getElementById('documents-table').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="delete-document"]');
+        if (btn) deleteDocument(btn.dataset.docId);
+      });
+      document.getElementById('members-table').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn || btn.disabled) return;
+        const id = Number(btn.dataset.userId);
+        if (btn.dataset.action === 'member-role') {
+          updateMember(id, { role: btn.dataset.role === 'admin' ? 'admin' : 'member' });
+        } else if (btn.dataset.action === 'member-active') {
+          updateMember(id, { is_active: btn.dataset.active === 'true' });
+        }
+      });
+      document.getElementById('keys-table').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="delete-key"]');
+        if (btn) deleteApiKey(Number(btn.dataset.keyId), btn.dataset.keyName);
+      });
+    }
+
+    // 이스케이프(&, <, >)를 먼저 한 뒤 색칠용 span 만 덧붙인다.
     function formatJSON(obj) {
       return JSON.stringify(obj, null, 2)
         .replace(/&/g, '&amp;')

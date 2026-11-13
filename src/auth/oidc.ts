@@ -13,6 +13,59 @@ export function authEnabled(): boolean {
   return Boolean(config.oidc.issuer && config.oidc.clientSecret && config.publicUrl);
 }
 
+/**
+ * 인증 없이(open mode) 돌아도 되는가.
+ *
+ * 예전에는 OIDC 환경변수 셋 중 하나만 비어도 조용히 전체 API 가 무인증이 됐다
+ * (운영에서 변수 하나 빠뜨리면 그대로 전부 공개). 이제 운영(NODE_ENV=production)에서는
+ * PGSEARCH_OPEN_MODE=1 로 "일부러 연다"고 밝힌 경우에만 허용한다. 개발 환경은 그대로.
+ */
+export function openModeAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.NODE_ENV !== 'production' || env.PGSEARCH_OPEN_MODE === '1';
+}
+
+export interface AuthBootCheck {
+  ok: boolean;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+}
+
+/** 부팅 때 인증 설정을 점검한다. ok 가 false 면 서버를 띄우지 않는다. */
+export function checkAuthBootConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  enabled: boolean = authEnabled()
+): AuthBootCheck {
+  if (enabled) {
+    return { ok: true, level: 'info', message: 'Auth: OIDC SSO enabled.' };
+  }
+  const missing = [
+    ['OIDC_ISSUER', config.oidc.issuer],
+    ['OIDC_CLIENT_SECRET', config.oidc.clientSecret],
+    ['PGSEARCH_PUBLIC_URL', config.publicUrl],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name)
+    .join(', ');
+  if (!openModeAllowed(env)) {
+    return {
+      ok: false,
+      level: 'error',
+      message:
+        `Refusing to start: authentication is not configured (missing: ${missing || 'n/a'}) ` +
+        'and NODE_ENV=production. Without it every endpoint would be open to anyone. ' +
+        'Set the OIDC variables, or set PGSEARCH_OPEN_MODE=1 to run without authentication on purpose.',
+    };
+  }
+  return {
+    ok: true,
+    level: 'warn',
+    message:
+      env.PGSEARCH_OPEN_MODE === '1'
+        ? 'Auth: OPEN MODE (PGSEARCH_OPEN_MODE=1) — every endpoint is accessible WITHOUT authentication.'
+        : `Auth: open mode (development; missing: ${missing}) — every endpoint is accessible without authentication.`,
+  };
+}
+
 export function redirectUri(): string {
   return `${config.publicUrl}/auth/oidc/callback`;
 }

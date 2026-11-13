@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import * as documentService from '../services/documentService.js';
-import { createError } from '../services/indexService.js';
+import { createError, isMsError } from '../services/indexService.js';
+import { parseListPagination } from '../services/searchValidation.js';
 import type { MsError } from '../types/meilisearch.js';
 
 interface IndexParams {
@@ -29,8 +30,8 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         const { uid } = request.params;
-        const offset = parseInt(request.query.offset || '0', 10);
-        const limit = parseInt(request.query.limit || '20', 10);
+        // 검색과 같은 규칙: 음이 아닌 정수만, limit 은 상한으로 잘라낸다.
+        const { offset, limit } = parseListPagination(request.query, 'document');
         const fields = request.query.fields?.split(',').map(f => f.trim());
 
         const result = await documentService.listDocuments(uid, offset, limit, fields);
@@ -38,6 +39,10 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
       } catch (error) {
         if ((error as MsError).code === 'index_not_found') {
           reply.status(404);
+          return error;
+        }
+        if (isMsError(error)) {
+          reply.status(400);
           return error;
         }
         throw error;
@@ -100,7 +105,7 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
           reply.status(404);
           return error;
         }
-        if ((error as MsError).code) {
+        if (isMsError(error)) {
           reply.status(400);
           return error;
         }
@@ -135,7 +140,7 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
           reply.status(404);
           return error;
         }
-        if ((error as MsError).code) {
+        if (isMsError(error)) {
           reply.status(400);
           return error;
         }
@@ -188,6 +193,10 @@ export async function documentRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         const { uid } = request.params;
+        if (!Array.isArray(request.body)) {
+          reply.status(400);
+          return createError('Invalid request body: expected an array of document ids.', 'bad_request');
+        }
         const docIds = request.body.map(id => String(id));
 
         if (docIds.length === 0) {

@@ -7,15 +7,28 @@ interface ParsedCondition {
   params: unknown[];
 }
 
-// 연산자 매핑
+// 연산자 매핑.
+// `!=` 는 IS DISTINCT FROM 으로 옮긴다 — SQL 의 `!=` 는 필드가 없는(NULL) 문서를
+// 떨어뜨리지만, Meilisearch 의 `!=` 는 "그 값이 아닌 모든 문서"(필드 없는 문서 포함)다.
 const OPERATORS: Record<string, string> = {
   '=': '=',
-  '!=': '!=',
+  '!=': 'IS DISTINCT FROM',
   '>': '>',
   '>=': '>=',
   '<': '<',
   '<=': '<=',
 };
+
+// "필드 연산자 값" 을 한 번에 가른다. 두 글자 연산자(>=, <=, !=)를 한 글자 연산자보다
+// 먼저 시도해야 한다. 예전에는 `=` 부터 차례로 split 해서 `price >= 10` 이
+// 필드 "price >" + 값 "10" 으로 읽혔다(그래서 >=, <=, != 가 전부 조용히 빈 결과였다).
+// 필드명에는 연산자 문자가 올 수 없고, 값 쪽은 무엇이든 올 수 있다(`url = 'a=b'`).
+const COMPARISON = /^([^=!<>]+?)\s*(>=|<=|!=|=|>|<)\s*([\s\S]*)$/;
+
+// 숫자로 읽을 수 있는 값만 numeric 으로 캐스팅한다. 그냥 `::numeric` 을 붙이면 그 필드에
+// 숫자가 아닌 값("N/A" 등)을 가진 문서가 하나만 있어도 쿼리 전체가 에러(500)가 된다.
+// (상수이며 사용자 입력이 섞이지 않는다.)
+const NUMERIC_TEXT = '^\\s*-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?\\s*$';
 
 // 값에서 따옴표 제거
 function unquote(value: string): string {
@@ -35,54 +48,58 @@ function unquote(value: string): string {
 function parseCondition(condition: string, startIndex: number): ParsedCondition {
   condition = condition.trim();
 
-  // 연산자 찾기
-  for (const [op, sqlOp] of Object.entries(OPERATORS)) {
-    const parts = condition.split(new RegExp(`\\s*${op.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`));
-    if (parts.length === 2) {
-      const field = parts[0].trim();
-      const value = unquote(parts[1].trim());
-
-      // 숫자인지 확인
-      const isNumeric = !isNaN(Number(value)) && value !== '';
-
-      if (isNumeric) {
-        return {
-          sql: `(data->>$${startIndex})::numeric ${sqlOp} $${startIndex + 1}`,
-          params: [field, Number(value)],
-        };
-      } else {
-        return {
-          sql: `data->>$${startIndex} ${sqlOp} $${startIndex + 1}`,
-          params: [field, value],
-        };
-      }
-    }
-  }
-
-  // IS NULL / IS NOT NULL
-  if (condition.toLowerCase().includes(' is null')) {
-    const field = condition.replace(/\s+is\s+null/i, '').trim();
-    return { sql: `data->>$${startIndex} IS NULL`, params: [field] };
-  }
-  if (condition.toLowerCase().includes(' is not null')) {
-    const field = condition.replace(/\s+is\s+not\s+null/i, '').trim();
-    return { sql: `data->>$${startIndex} IS NOT NULL`, params: [field] };
-  }
-
-  // EXISTS
-  if (condition.toLowerCase().startsWith('exists(')) {
-    const field = condition.slice(7, -1).trim();
-    return { sql: `data ? $${startIndex}`, params: [field] };
-  }
+  // IN / IS NULL / EXISTS 를 비교 연산자보다 먼저 본다 — 값 안에 `=` 가 들어 있는
+  // `tag IN ['a=b']` 같은 조건이 비교식으로 잘못 읽히지 않게.
 
   // IN 연산자: field IN ['a', 'b']
-  const inMatch = condition.match(/^(\w+)\s+IN\s+\[(.*)\]$/i);
+  const inMatch = condition.match(/^(\w+)\s+IN\s+\[([\s\S]*)\]$/i);
   if (inMatch) {
     const field = inMatch[1];
     const values = inMatch[2].split(',').map(v => unquote(v.trim()));
     return {
       sql: `data->>$${startIndex} = ANY($${startIndex + 1})`,
       params: [field, values],
+    };
+  }
+
+  // IS NOT NULL / IS NULL
+  const notNullMatch = condition.match(/^([^=!<>'"]+?)\s+is\s+not\s+null$/i);
+  if (notNullMatch) {
+    return { sql: `data->>$${startIndex} IS NOT NULL`, params: [notNullMatch[1].trim()] };
+  }
+  const nullMatch = condition.match(/^([^=!<>'"]+?)\s+is\s+null$/i);
+  if (nullMatch) {
+    return { sql: `data->>$${startIndex} IS NULL`, params: [nullMatch[1].trim()] };
+  }
+
+  // EXISTS
+  const existsMatch = condition.match(/^exists\(([\s\S]*)\)$/i);
+  if (existsMatch) {
+    return { sql: `data ? $${startIndex}`, params: [existsMatch[1].trim()] };
+  }
+
+  // 비교 연산자
+  const cmp = condition.match(COMPARISON);
+  if (cmp) {
+    const field = cmp[1].trim();
+    const sqlOp = OPERATORS[cmp[2]];
+    const value = unquote(cmp[3].trim());
+    if (!field) throw new Error(`Invalid filter syntax: ${condition}`);
+
+    // 숫자인지 확인
+    const isNumeric = value.trim() !== '' && Number.isFinite(Number(value));
+
+    if (isNumeric) {
+      return {
+        sql:
+          `(CASE WHEN data->>$${startIndex} ~ '${NUMERIC_TEXT}' ` +
+          `THEN (data->>$${startIndex})::numeric END) ${sqlOp} $${startIndex + 1}::numeric`,
+        params: [field, Number(value)],
+      };
+    }
+    return {
+      sql: `data->>$${startIndex} ${sqlOp} $${startIndex + 1}`,
+      params: [field, value],
     };
   }
 

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import * as indexService from '../services/indexService.js';
+import { parseListPagination } from '../services/searchValidation.js';
 import type { CreateIndexRequest, UpdateIndexRequest, MsError } from '../types/meilisearch.js';
 
 interface ListQuery {
@@ -16,10 +17,16 @@ export async function indexRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get<{ Querystring: ListQuery }>(
     '/indexes',
     async (request, reply) => {
-      const offset = parseInt(request.query.offset || '0', 10);
-      const limit = parseInt(request.query.limit || '20', 10);
+      let page;
+      try {
+        // 검색과 같은 규칙: 음이 아닌 정수만, limit 은 상한으로 잘라낸다.
+        page = parseListPagination(request.query, 'index');
+      } catch (error) {
+        reply.status(400);
+        return error;
+      }
 
-      const result = await indexService.listIndexes(offset, limit);
+      const result = await indexService.listIndexes(page.offset, page.limit);
       return result;
     }
   );
@@ -45,7 +52,7 @@ export async function indexRoutes(fastify: FastifyInstance): Promise<void> {
     '/indexes',
     async (request, reply) => {
       try {
-        const { uid, primaryKey } = request.body;
+        const { uid, primaryKey } = request.body ?? ({} as CreateIndexRequest);
 
         if (!uid) {
           reply.status(400);
@@ -56,7 +63,7 @@ export async function indexRoutes(fastify: FastifyInstance): Promise<void> {
         reply.status(202);
         return task;
       } catch (error) {
-        if ((error as MsError).code) {
+        if (indexService.isMsError(error)) {
           reply.status(400);
           return error;
         }
@@ -71,7 +78,7 @@ export async function indexRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         const { uid } = request.params;
-        const { primaryKey } = request.body;
+        const { primaryKey } = request.body ?? ({} as UpdateIndexRequest);
 
         if (!primaryKey) {
           reply.status(400);
@@ -86,7 +93,7 @@ export async function indexRoutes(fastify: FastifyInstance): Promise<void> {
           reply.status(404);
           return error;
         }
-        if ((error as MsError).code) {
+        if (indexService.isMsError(error)) {
           reply.status(400);
           return error;
         }

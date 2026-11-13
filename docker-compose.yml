@@ -25,8 +25,9 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: '5432'
-      DB_USER: pgsearch
-      DB_PASSWORD: ${PG_PASSWORD:-pgsearch}
+      # 앱은 슈퍼유저(POSTGRES_USER)가 아닌 전용 계정으로 붙을 수 있다. 안 주면 예전처럼 pgsearch 로 붙는다.
+      DB_USER: ${PG_APP_USER:-pgsearch}
+      DB_PASSWORD: ${PG_APP_PASSWORD:-${PG_PASSWORD:-pgsearch}}
       DB_NAME: pgsearch
       PGSEARCH_PUBLIC_URL: ${PGSEARCH_PUBLIC_URL:-}
       PGSEARCH_ADMIN_EMAILS: ${PGSEARCH_ADMIN_EMAILS:-}
@@ -34,6 +35,11 @@ services:
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      # 인증 없이 일부러 열어 둘 때만 1. 운영(NODE_ENV=production)에서 OIDC 설정이 비어 있고
+      # 이 값도 없으면 서버가 뜨지 않는다.
+      PGSEARCH_OPEN_MODE: ${PGSEARCH_OPEN_MODE:-}
+      GATEHOUSE_STATUS_URL: ${GATEHOUSE_STATUS_URL:-}
+      GATEHOUSE_STATUS_SECRET: ${GATEHOUSE_STATUS_SECRET:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
     depends_on:
       postgres:

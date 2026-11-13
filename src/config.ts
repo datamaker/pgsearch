@@ -38,6 +38,12 @@ export const config = {
     clientSecret: process.env.OIDC_CLIENT_SECRET || '',
   },
 
+  // gatehouse 계정 상태 조회 (사내 공통 계약 A). 둘 다 있어야 켜진다.
+  gatehouseStatus: {
+    url: (process.env.GATEHOUSE_STATUS_URL || '').replace(/\/$/, ''),
+    secret: process.env.GATEHOUSE_STATUS_SECRET || '',
+  },
+
   // 이 목록의 이메일은 최초 로그인 시 admin 역할로 프로비저닝됨
   adminEmails: (process.env.PGSEARCH_ADMIN_EMAILS || '')
     .split(',')
