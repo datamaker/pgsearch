@@ -176,6 +176,22 @@ API keys have full read/write access.
 - Fastify
 - PostgreSQL 16+ with pg_trgm
 
+## Testing
+
+Tests run against a real PostgreSQL (with `pg_trgm`). They create and delete
+their own indexes, and refuse to start unless `DB_NAME` contains `test`.
+
+```bash
+docker run -d --rm --name pgsearch-test-db \
+  -e POSTGRES_PASSWORD=test -e POSTGRES_DB=pgsearch_test \
+  -p 127.0.0.1:54329:5432 postgres:16-alpine
+
+DB_HOST=127.0.0.1 DB_PORT=54329 DB_USER=postgres DB_PASSWORD=test \
+  DB_NAME=pgsearch_test npm test
+
+docker stop pgsearch-test-db
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

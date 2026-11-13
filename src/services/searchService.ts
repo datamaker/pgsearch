@@ -1,8 +1,16 @@
 import { query } from '../db/connection.js';
 import { getIndex, createError } from './indexService.js';
 import { parseFilter } from './filterParser.js';
+import { normalizeSearchRequest } from './searchValidation.js';
 import { config } from '../config.js';
 import type { MsSearchRequest, MsSearchResponse, MsSearchHit } from '../types/meilisearch.js';
+
+// ts_headline 옵션. 요청 값은 절대 여기에 넣지 않는다 — 예전에는 highlightPreTag/
+// highlightPostTag를 이 문자열에 끼워서 SQL 리터럴로 조립했고, 그게 SQL 인젝션이었다.
+// ts_headline 결과는 "하이라이트할 본문이 있는가" 판단에만 쓰이고 실제 태그 삽입은
+// 아래 JS에서 하므로, 사용자 태그가 DB까지 갈 이유가 없다. 상수이지만 SQL에는
+// 리터럴이 아니라 바인드 파라미터로 넘긴다.
+const HEADLINE_OPTIONS = 'StartSel=<em>, StopSel=</em>, MaxWords=35, MinWords=15';
 
 interface SearchRow {
   data: Record<string, unknown>;
@@ -36,25 +44,25 @@ export async function search(
 ): Promise<MsSearchResponse> {
   const startTime = Date.now();
 
-  const index = await getIndex(indexUid);
-  if (!index) {
-    throw createError(`Index \`${indexUid}\` not found.`, 'index_not_found');
-  }
-
+  // 요청 값 검증/정규화 (타입, 범위, limit 상한). DB를 건드리기 전에 먼저 거른다.
   const {
-    q = '',
-    offset = 0,
-    limit = config.search.defaultLimit,
+    q,
+    offset,
+    limit,
     filter,
     facets,
     attributesToRetrieve,
     attributesToHighlight,
-    highlightPreTag = '<em>',
-    highlightPostTag = '</em>',
+    highlightPreTag,
+    highlightPostTag,
     sort,
-    matchingStrategy = 'last',
-    showRankingScore = false,
-  } = request;
+    showRankingScore,
+  } = normalizeSearchRequest(request);
+
+  const index = await getIndex(indexUid);
+  if (!index) {
+    throw createError(`Index \`${indexUid}\` not found.`, 'index_not_found');
+  }
 
   const params: unknown[] = [indexUid];
   let paramIndex = 2;
@@ -83,7 +91,13 @@ export async function search(
 
   // 필터 적용 — parseFilter가 paramIndex부터 직접 올바른 플레이스홀더를 emit하므로
   // (이전의 $1→$10 오매칭이 있던) 문자열 replace 재인덱싱이 필요 없다.
-  const filterResult = parseFilter(filter, paramIndex);
+  let filterResult: ReturnType<typeof parseFilter>;
+  try {
+    filterResult = parseFilter(filter, paramIndex);
+  } catch (error) {
+    // 필터 문법 오류는 클라이언트 잘못 → 500이 아니라 400으로 돌려준다.
+    throw createError((error as Error).message, 'invalid_search_filter');
+  }
   if (filterResult && filterResult.sql) {
     whereClause += ` AND (${filterResult.sql})`;
     params.push(...filterResult.params);
@@ -121,15 +135,16 @@ export async function search(
   const searchParams = [...whereParams, ...orderParams];
   const limitIndex = paramIndex + orderParams.length;
   searchParams.push(limit, offset);
-
-  const headlineOptions = `StartSel=${highlightPreTag}, StopSel=${highlightPostTag}, MaxWords=35, MinWords=15`;
+  // ts_headline 옵션은 limit/offset 다음 자리의 바인드 파라미터로 넘긴다.
+  const headlineIndex = limitIndex + 2;
 
   let selectClause = 'data';
   if (q.trim()) {
     selectClause = `data,
       ts_rank(search_vector, to_tsquery('simple', $2)) as rank,
       similarity(search_text, $3) as similarity,
-      ts_headline('simple', search_text, to_tsquery('simple', $2), '${headlineOptions}') as highlight`;
+      ts_headline('simple', search_text, to_tsquery('simple', $2), $${headlineIndex}) as highlight`;
+    searchParams.push(HEADLINE_OPTIONS);
   }
 
   const searchSql = `
@@ -175,9 +190,11 @@ export async function search(
             .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
           const regex = terms.length > 0 ? new RegExp(`(${terms.join('|')})`, 'gi') : null;
           if (!regex) continue;
+          // 치환 문자열이 아니라 함수로 넘긴다 — 태그에 `$1`, `$&` 같은 치환 패턴이
+          // 들어 있어도 그대로 글자로 취급되도록.
           (hit._formatted as Record<string, unknown>)[attr] = value.replace(
             regex,
-            `${highlightPreTag}$1${highlightPostTag}`
+            match => `${highlightPreTag}${match}${highlightPostTag}`
           );
         }
       }

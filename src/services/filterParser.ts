@@ -98,23 +98,41 @@ function parseStringFilter(filter: string, startParamIndex: number): ParsedCondi
   // 실제 구현에서는 더 정교한 파서가 필요
   const tokens = tokenize(filter);
 
+  // 괄호/AND/OR은 사용자 입력이 SQL 구조로 그대로 나가는 유일한 부분이다. 값은 전부
+  // 바인딩되지만 구조를 검사하지 않으면 `a = 1) OR (b = 2` 같은 입력이 바깥의
+  // `index_uid = $1 AND (...)` 괄호를 닫고 나가서 다른 인덱스 문서까지 매칭시킨다.
+  // 그래서 괄호 짝과 "피연산자 ↔ 연산자" 순서를 직접 확인한다.
+  let depth = 0;
+  let expectOperand = true;
+
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i].trim();
+    if (!token) continue;
+    const upper = token.toUpperCase();
 
-    if (token.toUpperCase() === 'AND') {
-      sql += ' AND ';
-    } else if (token.toUpperCase() === 'OR') {
-      sql += ' OR ';
+    if (upper === 'AND' || upper === 'OR') {
+      if (expectOperand) throw new Error(`Invalid filter syntax: unexpected ${upper}`);
+      sql += ` ${upper} `;
+      expectOperand = true;
     } else if (token === '(') {
+      if (!expectOperand) throw new Error('Invalid filter syntax: unexpected `(`');
       sql += '(';
+      depth++;
     } else if (token === ')') {
+      if (expectOperand || depth === 0) throw new Error('Invalid filter syntax: unexpected `)`');
       sql += ')';
-    } else if (token) {
+      depth--;
+    } else {
+      if (!expectOperand) throw new Error(`Invalid filter syntax: ${token}`);
       const condition = parseCondition(token, startParamIndex + params.length);
       sql += condition.sql;
       params.push(...condition.params);
+      expectOperand = false;
     }
   }
+
+  if (depth !== 0) throw new Error('Invalid filter syntax: unbalanced parentheses');
+  if (sql && expectOperand) throw new Error('Invalid filter syntax: incomplete expression');
 
   return { sql, params };
 }
@@ -177,7 +195,8 @@ function parseArrayFilter(filter: string[] | string[][], startParamIndex: number
 
   for (const item of filter) {
     if (Array.isArray(item)) {
-      // 내부 배열은 OR로 연결
+      // 내부 배열은 OR로 연결. 빈 배열은 `()`가 되어 SQL 문법 오류를 내므로 건너뛴다.
+      if (item.length === 0) continue;
       const orConditions: string[] = [];
       for (const subItem of item) {
         const condition = parseCondition(subItem, startParamIndex + params.length);
